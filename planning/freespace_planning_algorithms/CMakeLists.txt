@@ -52,3 +52,18 @@ install(PROGRAMS
   test/debug_plot.py
   DESTINATION lib/${PROJECT_NAME}
 )
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+# find_package(pybind11_vendor REQUIRED)
+# find_package(pybind11 REQUIRED)
+add_subdirectory(pybind11)
+
+pybind11_add_module(freespace_planning_algorithms_python 
+  scripts/pybind11/astar_search_python.cpp
+)
+include_directories(freespace_planning_algorithms_python PRIVATE
+  include/
+)
+target_link_libraries(freespace_planning_algorithms_python PRIVATE
+  freespace_planning_algorithms
+)
