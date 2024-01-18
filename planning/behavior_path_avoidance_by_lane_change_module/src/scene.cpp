@@ -115,10 +115,6 @@ bool AvoidanceByLaneChange::specialRequiredCheck() const
 
   const auto minimum_avoid_distance = avoidance_helper_->getMinAvoidanceDistance(shift_length);
 
-  const auto longitudinal_acc_sampling_values =
-    sampleLongitudinalAccValues(status_.current_lanes, status_.target_lanes);
-  const auto prepare_durations = calcPrepareDuration(status_.current_lanes, status_.target_lanes);
-
   const auto max_offset = std::invoke([&]() -> double {
     auto max_offset{0.0};
     for (const auto & [type, p] : avoidance_parameters_->object_parameters) {

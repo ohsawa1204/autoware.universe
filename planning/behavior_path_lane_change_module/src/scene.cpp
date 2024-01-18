@@ -725,7 +725,7 @@ double NormalLaneChange::calcMaximumLaneChangeLength(
 std::vector<double> NormalLaneChange::sampleLongitudinalAccValues(
   const lanelet::ConstLanelets & current_lanes, const lanelet::ConstLanelets & target_lanes) const
 {
-  if (prev_module_path_.points.empty()) {
+  if (prev_module_path_.points.empty() || target_lanes.empty()) {
     return {};
   }
 
