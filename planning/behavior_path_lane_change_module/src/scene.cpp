@@ -232,26 +232,70 @@ void NormalLaneChange::insertStopPoint(
 
   // If lanelets.back() is in goal route section, get distance to goal.
   // Otherwise, get distance to end of lane.
-  const auto distance_to_terminal = std::invoke([&]() -> double {
-    if (route_handler->isInGoalRouteSection(lanelets.back())) {
-      const auto goal = route_handler->getGoalPose();
-      return getDistanceAlongLanelet(goal);
-    }
-    return utils::getDistanceToEndOfLane(path.points.front().point.pose, lanelets);
-  });
+  double distance_to_terminal = 0.0;
+  if (route_handler->isInGoalRouteSection(lanelets.back())) {
+    const auto goal = route_handler->getGoalPose();
+    distance_to_terminal = getDistanceAlongLanelet(goal);
+  } else {
+    distance_to_terminal = utils::getDistanceToEndOfLane(path.points.front().point.pose, lanelets);
+  }
 
   const double stop_point_buffer = lane_change_parameters_->backward_length_buffer_for_end_of_lane;
   const auto target_objects = getTargetObjects(status_.current_lanes, status_.target_lanes);
   double stopping_distance = distance_to_terminal - lane_change_buffer - stop_point_buffer;
 
-  if (!validateStartPointAndSetStopPose(stopping_distance, path)) {
-    RCLCPP_DEBUG(logger_, "invalid start pose, and stop pose is inserted here");
+  const auto is_valid_start_point = std::invoke([&]() -> bool {
+    auto lc_start_point = lanelet::utils::conversion::toLaneletPoint(
+      status_.lane_change_path.info.lane_changing_start.position);
+    const auto target_neighbor_preferred_lane_poly_2d =
+      utils::lane_change::getTargetNeighborLanesPolygon(
+        *route_handler, status_.current_lanes, type_);
+    return boost::geometry::covered_by(
+      lanelet::traits::to2D(lc_start_point), target_neighbor_preferred_lane_poly_2d);
+  });
+
+  if (!is_valid_start_point) {
+    const auto stop_point = utils::insertStopPoint(stopping_distance, path);
+    setStopPose(stop_point.point.pose);
+
     return;
   }
 
   // calculate minimum distance from path front to the stationary object on the ego lane.
-  const auto distance_to_ego_lane_obj = calculateMinDistanceToFrontObject(
-    path, lanelets, target_objects.current_lane, distance_to_terminal);
+  const auto distance_to_ego_lane_obj = [&]() -> double {
+    double distance_to_obj = distance_to_terminal;
+    const double distance_to_ego = getDistanceAlongLanelet(getEgoPose());
+
+    for (const auto & object : target_objects.current_lane) {
+      // check if stationary
+      const auto obj_v = std::abs(object.initial_twist.twist.linear.x);
+      if (obj_v > lane_change_parameters_->stop_velocity_threshold) {
+        continue;
+      }
+
+      // calculate distance from path front to the stationary object polygon on the ego lane.
+      const auto polygon =
+        tier4_autoware_utils::toPolygon2d(object.initial_pose.pose, object.shape).outer();
+      for (const auto & polygon_p : polygon) {
+        const auto p_fp = tier4_autoware_utils::toMsg(polygon_p.to_3d());
+        const auto lateral_fp = motion_utils::calcLateralOffset(path.points, p_fp);
+
+        // ignore if the point is around the ego path
+        if (std::abs(lateral_fp) > planner_data_->parameters.vehicle_width) {
+          continue;
+        }
+
+        const double current_distance_to_obj = calcSignedArcLength(path.points, 0, p_fp);
+
+        // ignore backward object
+        if (current_distance_to_obj < distance_to_ego) {
+          continue;
+        }
+        distance_to_obj = std::min(distance_to_obj, current_distance_to_obj);
+      }
+    }
+    return distance_to_obj;
+  }();
 
   // Need to stop before blocking obstacle
   if (distance_to_ego_lane_obj < distance_to_terminal) {
