@@ -19,13 +19,20 @@
 #include "behavior_path_planner_common/utils/path_safety_checker/objects_filtering.hpp"
 #include "behavior_path_planner_common/utils/path_utils.hpp"
 #include "behavior_path_planner_common/utils/utils.hpp"
+#include "lanelet2_extension/utility/message_conversion.hpp"
 
 #include <lanelet2_extension/utility/utilities.hpp>
 #include <rclcpp/logging.hpp>
+#include <tier4_autoware_utils/geometry/geometry.hpp>
+
+#include <geometry_msgs/msg/detail/point32__struct.hpp>
+#include <geometry_msgs/msg/detail/polygon__struct.hpp>
+#include <geometry_msgs/msg/detail/pose__struct.hpp>
 
 #include <boost/geometry/algorithms/centroid.hpp>
 #include <boost/geometry/strategies/cartesian/centroid_bashein_detmer.hpp>
 
+#include <cstddef>
 #include <utility>
 
 namespace behavior_path_planner
@@ -51,6 +58,7 @@ AvoidanceByLaneChange::AvoidanceByLaneChange(
 
 bool AvoidanceByLaneChange::specialRequiredCheck() const
 {
+  RCLCPP_DEBUG(logger_, "checking special required data.");
   const auto & data = avoidance_data_;
 
   if (data.target_objects.empty()) {
@@ -93,8 +101,6 @@ bool AvoidanceByLaneChange::specialRequiredCheck() const
     *lane_change_parameters_, shift_intervals,
     lane_change_parameters_->backward_length_buffer_for_end_of_lane);
 
-  // get minimum avoid distance
-
   const auto ego_width = getCommonParam().vehicle_width;
   const auto nearest_object_type = utils::getHighestProbLabel(nearest_object.object.classification);
   const auto nearest_object_parameter =
@@ -107,15 +113,78 @@ bool AvoidanceByLaneChange::specialRequiredCheck() const
   const auto shift_length = avoidance_helper_->getShiftLength(
     nearest_object, utils::avoidance::isOnRight(nearest_object), avoid_margin);
 
-  const auto maximum_avoid_distance = avoidance_helper_->getMaxAvoidanceDistance(shift_length);
+  const auto minimum_avoid_distance = avoidance_helper_->getMinAvoidanceDistance(shift_length);
+
+  const auto longitudinal_acc_sampling_values =
+    sampleLongitudinalAccValues(status_.current_lanes, status_.target_lanes);
+  const auto prepare_durations = calcPrepareDuration(status_.current_lanes, status_.target_lanes);
+
+  const auto max_offset = std::invoke([&]() -> double {
+    auto max_offset{0.0};
+    for (const auto & [type, p] : avoidance_parameters_->object_parameters) {
+      const auto offset =
+        2.0 * p.envelope_buffer_margin + p.safety_buffer_lateral + p.avoid_margin_lateral;
+      max_offset = std::max(max_offset, offset);
+    }
+    return max_offset;
+  });
+
+  auto create_point32 = [](const geometry_msgs::msg::Pose & pose) -> geometry_msgs::msg::Point32 {
+    geometry_msgs::msg::Point32 p;
+    p.x = static_cast<float>(pose.position.x);
+    p.y = static_cast<float>(pose.position.y);
+    p.z = static_cast<float>(pose.position.z);
+    return p;
+  };
+
+  const auto create_vehicle_polygon =
+    [&](const vehicle_info_util::VehicleInfo & vehicle_info, const double offset) {
+      const double & base_to_front = vehicle_info.max_longitudinal_offset_m;
+      const double & width = vehicle_info.vehicle_width_m;
+      const double & base_to_rear = vehicle_info.rear_overhang_m;
+
+      // if stationary object, extend forward and backward by the half of lon length
+      const double forward_lon_offset =
+        base_to_front + std::max(minimum_lane_change_length, minimum_avoid_distance);
+      const double backward_lon_offset = -base_to_rear;
+      const double lat_offset = width / 2.0 + offset;
+
+      const auto & base_link_pose = getEgoPose();
+
+      const auto p1 =
+        tier4_autoware_utils::calcOffsetPose(base_link_pose, forward_lon_offset, lat_offset, 0.0);
+      const auto p2 =
+        tier4_autoware_utils::calcOffsetPose(base_link_pose, forward_lon_offset, -lat_offset, 0.0);
+      const auto p3 =
+        tier4_autoware_utils::calcOffsetPose(base_link_pose, backward_lon_offset, -lat_offset, 0.0);
+      const auto p4 =
+        tier4_autoware_utils::calcOffsetPose(base_link_pose, backward_lon_offset, lat_offset, 0.0);
+      geometry_msgs::msg::Polygon polygon;
+
+      polygon.points.push_back(create_point32(p1));
+      polygon.points.push_back(create_point32(p2));
+      polygon.points.push_back(create_point32(p3));
+      polygon.points.push_back(create_point32(p4));
+
+      return polygon;
+    };
+
+  debug_execution_.effective_area =
+    create_vehicle_polygon(getCommonParam().vehicle_info, max_offset);
+
+  RCLCPP_DEBUG(logger_, "ego pose.x %.3f pose.y %.3f", getEgoPosition().x, getEgoPosition().y);
+  RCLCPP_DEBUG(
+    logger_, "effective_area p1.x %.3f, p1.y %.3f",
+    debug_execution_.effective_area.points.front().x,
+    debug_execution_.effective_area.points.front().y);
 
   RCLCPP_DEBUG(
     logger_,
-    "nearest_object.longitudinal %.3f, minimum_lane_change_length %.3f, maximum_avoid_distance "
+    "nearest_object.longitudinal %.3f, minimum_lane_change_length %.3f, minimum_avoid_distance "
     "%.3f",
-    nearest_object.longitudinal, minimum_lane_change_length, maximum_avoid_distance);
+    nearest_object.longitudinal, minimum_lane_change_length, minimum_avoid_distance);
 
-  return nearest_object.longitudinal > std::max(minimum_lane_change_length, maximum_avoid_distance);
+  return nearest_object.longitudinal > std::max(minimum_lane_change_length, minimum_avoid_distance);
 }
 
 bool AvoidanceByLaneChange::specialExpiredCheck() const

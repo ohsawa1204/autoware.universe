@@ -25,10 +25,15 @@
 
 #include <lanelet2_extension/utility/message_conversion.hpp>
 #include <lanelet2_extension/utility/utilities.hpp>
+#include <rclcpp/logging.hpp>
 #include <tier4_autoware_utils/geometry/boost_polygon_utils.hpp>
 
+#include <autoware_auto_planning_msgs/msg/detail/path_with_lane_id__struct.hpp>
+
+#include <lanelet2_core/Forward.h>
 #include <lanelet2_core/geometry/Point.h>
 #include <lanelet2_core/geometry/Polygon.h>
+#include <lanelet2_core/primitives/Traits.h>
 
 #include <algorithm>
 #include <limits>
@@ -115,17 +120,17 @@ std::pair<bool, bool> NormalLaneChange::getSafePath(LaneChangePath & safe_path) 
   return {true, found_safe_path};
 }
 
-bool NormalLaneChange::isLaneChangeRequired() const
+bool NormalLaneChange::isLaneChangeRequired()
 {
-  const auto current_lanes = getCurrentLanes();
+  status_.current_lanes = getCurrentLanes();
 
-  if (current_lanes.empty()) {
+  if (status_.current_lanes.empty()) {
     return false;
   }
 
-  const auto target_lanes = getLaneChangeLanes(current_lanes, direction_);
+  status_.target_lanes = getLaneChangeLanes(status_.current_lanes, direction_);
 
-  return !target_lanes.empty();
+  return !status_.target_lanes.empty();
 }
 
 bool NormalLaneChange::isStoppedAtRedTrafficLight() const
@@ -204,13 +209,16 @@ void NormalLaneChange::extendOutputDrivableArea(BehaviorModuleOutput & output)
 void NormalLaneChange::insertStopPoint(
   const lanelet::ConstLanelets & lanelets, PathWithLaneId & path)
 {
+  RCLCPP_DEBUG(logger_, "%s", __func__);
   if (lanelets.empty()) {
+    RCLCPP_DEBUG(logger_, "%s - empty lanelets", __func__);
     return;
   }
 
   const auto & route_handler = getRouteHandler();
 
   if (route_handler->getNumLaneToPreferredLane(lanelets.back()) == 0) {
+    RCLCPP_DEBUG(logger_, "%s - no preferred lane", __func__);
     return;
   }
 
@@ -224,70 +232,26 @@ void NormalLaneChange::insertStopPoint(
 
   // If lanelets.back() is in goal route section, get distance to goal.
   // Otherwise, get distance to end of lane.
-  double distance_to_terminal = 0.0;
-  if (route_handler->isInGoalRouteSection(lanelets.back())) {
-    const auto goal = route_handler->getGoalPose();
-    distance_to_terminal = getDistanceAlongLanelet(goal);
-  } else {
-    distance_to_terminal = utils::getDistanceToEndOfLane(path.points.front().point.pose, lanelets);
-  }
+  const auto distance_to_terminal = std::invoke([&]() -> double {
+    if (route_handler->isInGoalRouteSection(lanelets.back())) {
+      const auto goal = route_handler->getGoalPose();
+      return getDistanceAlongLanelet(goal);
+    }
+    return utils::getDistanceToEndOfLane(path.points.front().point.pose, lanelets);
+  });
 
   const double stop_point_buffer = lane_change_parameters_->backward_length_buffer_for_end_of_lane;
   const auto target_objects = getTargetObjects(status_.current_lanes, status_.target_lanes);
   double stopping_distance = distance_to_terminal - lane_change_buffer - stop_point_buffer;
 
-  const auto is_valid_start_point = std::invoke([&]() -> bool {
-    auto lc_start_point = lanelet::utils::conversion::toLaneletPoint(
-      status_.lane_change_path.info.lane_changing_start.position);
-    const auto target_neighbor_preferred_lane_poly_2d =
-      utils::lane_change::getTargetNeighborLanesPolygon(
-        *route_handler, status_.current_lanes, type_);
-    return boost::geometry::covered_by(
-      lanelet::traits::to2D(lc_start_point), target_neighbor_preferred_lane_poly_2d);
-  });
-
-  if (!is_valid_start_point) {
-    const auto stop_point = utils::insertStopPoint(stopping_distance, path);
-    setStopPose(stop_point.point.pose);
-
+  if (!validateStartPointAndSetStopPose(stopping_distance, path)) {
+    RCLCPP_DEBUG(logger_, "invalid start pose, and stop pose is inserted here");
     return;
   }
 
   // calculate minimum distance from path front to the stationary object on the ego lane.
-  const auto distance_to_ego_lane_obj = [&]() -> double {
-    double distance_to_obj = distance_to_terminal;
-    const double distance_to_ego = getDistanceAlongLanelet(getEgoPose());
-
-    for (const auto & object : target_objects.current_lane) {
-      // check if stationary
-      const auto obj_v = std::abs(object.initial_twist.twist.linear.x);
-      if (obj_v > lane_change_parameters_->stop_velocity_threshold) {
-        continue;
-      }
-
-      // calculate distance from path front to the stationary object polygon on the ego lane.
-      const auto polygon =
-        tier4_autoware_utils::toPolygon2d(object.initial_pose.pose, object.shape).outer();
-      for (const auto & polygon_p : polygon) {
-        const auto p_fp = tier4_autoware_utils::toMsg(polygon_p.to_3d());
-        const auto lateral_fp = motion_utils::calcLateralOffset(path.points, p_fp);
-
-        // ignore if the point is around the ego path
-        if (std::abs(lateral_fp) > planner_data_->parameters.vehicle_width) {
-          continue;
-        }
-
-        const double current_distance_to_obj = calcSignedArcLength(path.points, 0, p_fp);
-
-        // ignore backward object
-        if (current_distance_to_obj < distance_to_ego) {
-          continue;
-        }
-        distance_to_obj = std::min(distance_to_obj, current_distance_to_obj);
-      }
-    }
-    return distance_to_obj;
-  }();
+  const auto distance_to_ego_lane_obj = calculateMinDistanceToFrontObject(
+    path, lanelets, target_objects.current_lane, distance_to_terminal);
 
   // Need to stop before blocking obstacle
   if (distance_to_ego_lane_obj < distance_to_terminal) {
@@ -340,7 +304,39 @@ void NormalLaneChange::insertStopPoint(
   if (stopping_distance > 0.0) {
     const auto stop_point = utils::insertStopPoint(stopping_distance, path);
     setStopPose(stop_point.point.pose);
+
+    RCLCPP_DEBUG(logger_, "%s - stopping distance is set", __func__);
   }
+  RCLCPP_DEBUG(logger_, "%s - stopping distance less than %.3f", __func__, stopping_distance);
+}
+
+bool NormalLaneChange::validateStartPointAndSetStopPose(
+  const double stopping_distance, PathWithLaneId & path)
+{
+  const auto & route_handler = getRouteHandler();
+
+  using lanelet::traits::to2D;
+  using lanelet::utils::conversion::toLaneletPoint;
+
+  const auto is_valid_start_point = std::invoke([&]() -> bool {
+    auto lc_start_point =
+      toLaneletPoint(status_.lane_change_path.info.lane_changing_start.position);
+    const auto target_neighbor_preferred_lane_poly_2d =
+      utils::lane_change::getTargetNeighborLanesPolygon(
+        *route_handler, status_.current_lanes, type_);
+    return boost::geometry::covered_by(
+      to2D(lc_start_point), target_neighbor_preferred_lane_poly_2d);
+  });
+
+  if (!is_valid_start_point) {
+    const auto stop_point = utils::insertStopPoint(stopping_distance, path);
+    setStopPose(stop_point.point.pose);
+
+    RCLCPP_DEBUG(logger_, "%s - invalid start point", __func__);
+    return true;
+  }
+
+  return false;
 }
 
 PathWithLaneId NormalLaneChange::getReferencePath() const
@@ -420,8 +416,15 @@ void NormalLaneChange::resetParameters()
   is_abort_approval_requested_ = false;
   current_lane_change_state_ = LaneChangeStates::Normal;
   abort_path_ = nullptr;
+  status_ = {};
 
   object_debug_.clear();
+  object_debug_after_approval_.clear();
+  debug_filtered_objects_.current_lane.clear();
+  debug_filtered_objects_.target_lane.clear();
+  debug_filtered_objects_.other_lane.clear();
+  debug_valid_path_.clear();
+  RCLCPP_DEBUG(logger_, "reset all flags and debug information.");
 }
 
 TurnSignalInfo NormalLaneChange::updateOutputTurnSignal()
@@ -483,6 +486,46 @@ lanelet::ConstLanelets NormalLaneChange::getLaneChangeLanes(
   return route_handler->getLaneletSequence(
     lane_change_lane.value(), getEgoPose(), backward_length, forward_length);
 }
+
+double NormalLaneChange::calculateMinDistanceToFrontObject(
+  const PathWithLaneId & path, const lanelet::ConstLanelets & lanelets,
+  const std::vector<utils::path_safety_checker::ExtendedPredictedObject> & target_objects,
+  const double distance_to_terminal) const
+{
+  auto distance_to_obj = distance_to_terminal;
+  const auto distance_to_ego =
+    utils::getSignedDistance(path.points.front().point.pose, getEgoPose(), lanelets);
+
+  for (const auto & object : target_objects) {
+    // check if stationary
+    const auto obj_v = std::abs(object.initial_twist.twist.linear.x);
+    if (obj_v > lane_change_parameters_->stop_velocity_threshold) {
+      continue;
+    }
+
+    // calculate distance from path front to the stationary object polygon on the ego lane.
+    const auto polygon =
+      tier4_autoware_utils::toPolygon2d(object.initial_pose.pose, object.shape).outer();
+    for (const auto & polygon_p : polygon) {
+      const auto p_fp = tier4_autoware_utils::toMsg(polygon_p.to_3d());
+      const auto lateral_fp = motion_utils::calcLateralOffset(path.points, p_fp);
+
+      // ignore if the point is around the ego path
+      if (std::abs(lateral_fp) > planner_data_->parameters.vehicle_width) {
+        continue;
+      }
+
+      const double current_distance_to_obj = calcSignedArcLength(path.points, 0, p_fp);
+
+      // ignore backward object
+      if (current_distance_to_obj < distance_to_ego) {
+        continue;
+      }
+      distance_to_obj = std::min(distance_to_obj, current_distance_to_obj);
+    }
+  }
+  return distance_to_obj;
+};
 
 bool NormalLaneChange::isNearEndOfCurrentLanes(
   const lanelet::ConstLanelets & current_lanes, const lanelet::ConstLanelets & target_lanes,
@@ -1700,6 +1743,7 @@ PathSafetyStatus NormalLaneChange::isLaneChangePathSafe(
 
   if (path.points.empty()) {
     path_safety_status.is_safe = false;
+    RCLCPP_DEBUG(logger_, "%s empty path", __func__);
     return path_safety_status;
   }
 

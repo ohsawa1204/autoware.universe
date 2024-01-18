@@ -20,7 +20,10 @@
 #include "behavior_path_planner_common/interface/scene_module_visitor.hpp"
 #include "behavior_path_planner_common/marker_utils/utils.hpp"
 
+#include <rclcpp/logging.hpp>
 #include <tier4_autoware_utils/ros/marker_helper.hpp>
+
+#include <sys/types.h>
 
 #include <algorithm>
 #include <memory>
@@ -50,9 +53,6 @@ LaneChangeInterface::LaneChangeInterface(
 void LaneChangeInterface::processOnEntry()
 {
   waitApproval();
-  module_type_->setPreviousModulePaths(
-    getPreviousModuleOutput().reference_path, getPreviousModuleOutput().path);
-  module_type_->updateLaneChangeStatus();
 }
 
 void LaneChangeInterface::processOnExit()
@@ -80,13 +80,25 @@ void LaneChangeInterface::updateData()
 {
   module_type_->setPreviousModulePaths(
     getPreviousModuleOutput().reference_path, getPreviousModuleOutput().path);
+  module_type_->setPreviousDrivableAreaInfo(getPreviousModuleOutput().drivable_area_info);
+  module_type_->setPreviousTurnSignalInfo(getPreviousModuleOutput().turn_signal_info);
+
+  if (isWaitingApproval() && module_type_->specialRequiredCheck()) {
+    RCLCPP_DEBUG(logger_, "updating lane change status");
+    module_type_->updateLaneChangeStatus();
+  }
+  setObjectDebugVisualization();
+
   module_type_->updateSpecialData();
   module_type_->resetStopPose();
 }
 
 void LaneChangeInterface::postProcess()
 {
-  post_process_safety_status_ = module_type_->isApprovedPathSafe();
+  RCLCPP_DEBUG(logger_, "post processing");
+  if (!isWaitingApproval()) {
+    post_process_safety_status_ = module_type_->isApprovedPathSafe();
+  }
 }
 
 BehaviorModuleOutput LaneChangeInterface::plan()
@@ -98,8 +110,6 @@ BehaviorModuleOutput LaneChangeInterface::plan()
     return {};
   }
 
-  module_type_->setPreviousDrivableAreaInfo(getPreviousModuleOutput().drivable_area_info);
-  module_type_->setPreviousTurnSignalInfo(getPreviousModuleOutput().turn_signal_info);
   auto output = module_type_->generateOutput();
   path_reference_ = std::make_shared<PathWithLaneId>(output.reference_path);
   *prev_approved_path_ = getPreviousModuleOutput().path;
@@ -119,6 +129,7 @@ BehaviorModuleOutput LaneChangeInterface::plan()
 
 BehaviorModuleOutput LaneChangeInterface::planWaitingApproval()
 {
+  RCLCPP_DEBUG(logger_, "%s", __func__);
   *prev_approved_path_ = getPreviousModuleOutput().path;
   module_type_->insertStopPoint(
     module_type_->getLaneChangeStatus().current_lanes, *prev_approved_path_);
@@ -128,22 +139,14 @@ BehaviorModuleOutput LaneChangeInterface::planWaitingApproval()
   out.reference_path = getPreviousModuleOutput().reference_path;
   out.turn_signal_info = getPreviousModuleOutput().turn_signal_info;
   out.drivable_area_info = getPreviousModuleOutput().drivable_area_info;
-
-  module_type_->setPreviousModulePaths(
-    getPreviousModuleOutput().reference_path, getPreviousModuleOutput().path);
-  module_type_->updateLaneChangeStatus();
-  setObjectDebugVisualization();
+  out.turn_signal_info = getCurrentTurnSignalInfo(out.path, out.turn_signal_info);
 
   for (const auto & [uuid, data] : module_type_->getDebugData()) {
     const auto color = data.is_safe ? ColorName::GREEN : ColorName::RED;
     setObjectsOfInterestData(data.current_obj_pose, data.obj_shape, color);
   }
 
-  // change turn signal when the vehicle reaches at the end of the path for waiting lane change
-  out.turn_signal_info = getCurrentTurnSignalInfo(out.path, out.turn_signal_info);
-
   path_reference_ = std::make_shared<PathWithLaneId>(getPreviousModuleOutput().reference_path);
-
   stop_pose_ = module_type_->getStopPose();
 
   if (!module_type_->isValidPath()) {
@@ -211,6 +214,7 @@ bool LaneChangeInterface::canTransitSuccessState()
   }
 
   if (module_type_->hasFinishedLaneChange()) {
+    module_type_->resetParameters();
     log_debug_throttled("Lane change process has completed.");
     return true;
   }
@@ -226,6 +230,10 @@ bool LaneChangeInterface::canTransitFailureState()
   };
 
   log_debug_throttled(__func__);
+
+  if (module_type_->specialRequiredCheck() && !module_type_->isValidPath()) {
+    return true;
+  }
 
   if (module_type_->isAbortState() && !module_type_->hasFinishedAbort()) {
     log_debug_throttled("Abort process has on going.");
@@ -322,6 +330,7 @@ void LaneChangeInterface::setObjectDebugVisualization() const
   if (!parameters_->publish_debug_marker) {
     return;
   }
+  using marker_utils::createPolygonMarkerArray;
   using marker_utils::showPolygon;
   using marker_utils::showPredictedPath;
   using marker_utils::showSafetyCheckInfo;
@@ -332,6 +341,7 @@ void LaneChangeInterface::setObjectDebugVisualization() const
   const auto debug_after_approval = module_type_->getAfterApprovalDebugData();
   const auto debug_valid_path = module_type_->getDebugValidPath();
   const auto debug_filtered_objects = module_type_->getDebugFilteredObjects();
+  const auto debug_execution = module_type_->getDebugExecution();
 
   debug_marker_.markers.clear();
   const auto add = [this](const MarkerArray & added) {
@@ -353,6 +363,10 @@ void LaneChangeInterface::setObjectDebugVisualization() const
     add(showPredictedPath(debug_after_approval, "ego_predicted_path_after_approval"));
     add(showPolygon(debug_after_approval, "ego_and_target_polygon_relation_after_approval"));
   }
+
+  auto i = 0;
+  add(createPolygonMarkerArray(
+    debug_execution.effective_area, "effective_area", ++i, 0.16, 1.0, 0.69, 0.1));
 }
 
 MarkerArray LaneChangeInterface::getModuleVirtualWall()

@@ -19,6 +19,8 @@
 
 #include <interpolation/linear_interpolation.hpp>
 
+#include <geometry_msgs/msg/detail/polygon__struct.hpp>
+
 #include <lanelet2_core/primitives/Lanelet.h>
 
 #include <utility>
@@ -208,6 +210,11 @@ struct PathSafetyStatus
 {
   bool is_safe{true};
   bool is_object_coming_from_rear{false};
+};
+
+struct ExecutionDebug
+{
+  geometry_msgs::msg::Polygon effective_area;
 };
 }  // namespace behavior_path_planner::data::lane_change
 

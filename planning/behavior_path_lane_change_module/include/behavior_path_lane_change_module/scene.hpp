@@ -89,7 +89,7 @@ public:
 
   bool isAbortState() const override;
 
-  bool isLaneChangeRequired() const override;
+  bool isLaneChangeRequired() override;
 
   bool isStoppedAtRedTrafficLight() const override;
 
@@ -98,6 +98,13 @@ protected:
 
   lanelet::ConstLanelets getLaneChangeLanes(
     const lanelet::ConstLanelets & current_lanes, Direction direction) const override;
+
+  bool validateStartPointAndSetStopPose(const double stopping_distance, PathWithLaneId & path);
+
+  double calculateMinDistanceToFrontObject(
+    const PathWithLaneId & path, const lanelet::ConstLanelets & lanelets,
+    const std::vector<utils::path_safety_checker::ExtendedPredictedObject> & target_objects,
+    const double distance_to_terminal) const override;
 
   int getNumToPreferredLane(const lanelet::ConstLanelet & lane) const override;
 

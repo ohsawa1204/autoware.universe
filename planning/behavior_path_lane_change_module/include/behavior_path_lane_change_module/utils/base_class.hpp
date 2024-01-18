@@ -32,6 +32,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace behavior_path_planner
 {
@@ -80,7 +81,7 @@ public:
 
   virtual bool hasFinishedAbort() const = 0;
 
-  virtual bool isLaneChangeRequired() const = 0;
+  virtual bool isLaneChangeRequired() = 0;
 
   virtual bool isAbortState() const = 0;
 
@@ -102,7 +103,7 @@ public:
 
   virtual bool calcAbortPath() = 0;
 
-  virtual bool specialRequiredCheck() const { return false; }
+  virtual bool specialRequiredCheck() const { return true; }
 
   virtual bool specialExpiredCheck() const { return false; }
 
@@ -129,11 +130,7 @@ public:
 
   virtual void updateSpecialData() {}
 
-  virtual void insertStopPoint(
-    [[maybe_unused]] const lanelet::ConstLanelets & lanelets,
-    [[maybe_unused]] PathWithLaneId & path)
-  {
-  }
+  virtual void insertStopPoint(const lanelet::ConstLanelets & lanelets, PathWithLaneId & path) = 0;
 
   const LaneChangeStatus & getLaneChangeStatus() const { return status_; }
 
@@ -150,6 +147,8 @@ public:
   {
     return debug_filtered_objects_;
   }
+
+  const data::lane_change::ExecutionDebug & getDebugExecution() const { return debug_execution_; }
 
   const Pose & getEgoPose() const { return planner_data_->self_odometry->pose.pose; }
 
@@ -234,6 +233,11 @@ protected:
   virtual lanelet::ConstLanelets getLaneChangeLanes(
     const lanelet::ConstLanelets & current_lanes, Direction direction) const = 0;
 
+  virtual double calculateMinDistanceToFrontObject(
+    const PathWithLaneId & path, const lanelet::ConstLanelets & lanelets,
+    const std::vector<utils::path_safety_checker::ExtendedPredictedObject> & target_objects,
+    const double distance_to_terminal) const = 0;
+
   LaneChangeStatus status_{};
   PathShifter path_shifter_{};
 
@@ -263,6 +267,7 @@ protected:
   mutable LaneChangeTargetObjects debug_filtered_objects_{};
   mutable double object_debug_lifetime_{0.0};
   mutable StopWatch<std::chrono::milliseconds> stop_watch_;
+  mutable data::lane_change::ExecutionDebug debug_execution_;
 
   rclcpp::Logger logger_ = utils::lane_change::getLogger(getModuleTypeStr());
   mutable rclcpp::Clock clock_{RCL_ROS_TIME};
