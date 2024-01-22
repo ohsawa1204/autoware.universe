@@ -202,6 +202,7 @@ std::optional<std::pair<size_t, geometry_msgs::msg::Point>> intersectBound(
       std::pair<size_t, geometry_msgs::msg::Point> result;
       result.first = static_cast<size_t>(i);
       result.second = *intersect_point;
+      result.second.z = p1.z;
       return result;
     }
   }
