@@ -8,16 +8,13 @@ using namespace freespace_planning_algorithms;
 
 PYBIND11_MODULE(freespace_planning_algorithms_python, p)
 {
-    py::class_<AbstractPlanningAlgorithm>(p, "AbstractPlanningAlgorithm");
-
-    py::class_<AstarSearch, AbstractPlanningAlgorithm>(p, "AstarSearch")
-            .def(py::init<PlannerCommonParam &, VehicleShape &, AstarParam &>());
-
-    py::class_<AstarParam>(p, "AstarParam", py::dynamic_attr())
+    auto pyAstarParam = py::class_<AstarParam>(p, "AstarParam", py::dynamic_attr())
+            .def(py::init<>())
             .def_readwrite("only_behind_solutions", &AstarParam::only_behind_solutions)
             .def_readwrite("use_back", &AstarParam::use_back)
             .def_readwrite("distance_heuristic_weight", &AstarParam::distance_heuristic_weight);
-    py::class_<PlannerCommonParam>(p, "PlannerCommonParam", py::dynamic_attr())
+    auto pyPlannerCommonParam = py::class_<PlannerCommonParam>(p, "PlannerCommonParam", py::dynamic_attr())
+            .def(py::init<>())
             .def_readwrite("time_limit", &PlannerCommonParam::time_limit)
             .def_readwrite("minimum_tuning_radius", &PlannerCommonParam::time_limit)
             .def_readwrite("maximum_tuning_radius", &PlannerCommonParam::time_limit)
@@ -29,10 +26,14 @@ PYBIND11_MODULE(freespace_planning_algorithms_python, p)
             .def_readwrite("longitudinal_goal_range", &PlannerCommonParam::longitudinal_goal_range)
             .def_readwrite("angle_goal_range", &PlannerCommonParam::angle_goal_range)
             .def_readwrite("obstacle_threshold", &PlannerCommonParam::obstacle_threshold);
-    py::class_<VehicleShape>(p, "VehicleShape", py::dynamic_attr())
+    auto pyVSehicleShape = py::class_<VehicleShape>(p, "VehicleShape", py::dynamic_attr())
             .def(py::init<>())
             .def(py::init<double, double, double>())
             .def_readwrite("length", &VehicleShape::length)
             .def_readwrite("width", &VehicleShape::width)
             .def_readwrite("base2back", &VehicleShape::base2back);
+
+    py::class_<AbstractPlanningAlgorithm>(p, "AbstractPlanningAlgorithm");
+    py::class_<AstarSearch, AbstractPlanningAlgorithm>(p, "AstarSearch")
+    .def(py::init<PlannerCommonParam &, VehicleShape &, AstarParam &>());
 }

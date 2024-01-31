@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.14)
 project(freespace_planning_algorithms)
 
 find_package(autoware_cmake REQUIRED)
+find_package(python_cmake_module REQUIRED)
+
 autoware_package()
+ament_python_install_package(${PROJECT_NAME})
 
 ament_auto_add_library(reeds_shepp SHARED
   src/reeds_shepp.cpp
@@ -54,9 +57,9 @@ install(PROGRAMS
 )
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
-# find_package(pybind11_vendor REQUIRED)
-# find_package(pybind11 REQUIRED)
-add_subdirectory(pybind11)
+find_package(pybind11_vendor REQUIRED)
+find_package(pybind11 REQUIRED)
+# add_subdirectory(pybind11)
 
 pybind11_add_module(freespace_planning_algorithms_python SHARED
   scripts/module/astar_search_python.cpp
@@ -67,4 +70,8 @@ include_directories(freespace_planning_algorithms_python PRIVATE
 )
 target_link_libraries(freespace_planning_algorithms_python PRIVATE
   freespace_planning_algorithms
+)
+
+install(TARGETS freespace_planning_algorithms_python
+  DESTINATION "${PYTHON_INSTALL_DIR}/${PROJECT_NAME}"
 )
