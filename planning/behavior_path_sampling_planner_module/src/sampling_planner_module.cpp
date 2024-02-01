@@ -544,9 +544,9 @@ BehaviorModuleOutput SamplingPlannerModule::plan()
   }
 
   const auto left_bound = (utils::calcBound(
-    getPreviousModuleOutput().path, planner_data_, drivable_lanes, false, false, true, true));
-  const auto right_bound = (utils::calcBound(
     getPreviousModuleOutput().path, planner_data_, drivable_lanes, false, false, false, true));
+  const auto right_bound = (utils::calcBound(
+    getPreviousModuleOutput().path, planner_data_, drivable_lanes, false, false, false, false));
 
   const auto sampling_planner_data =
     createPlannerData(planner_data_->prev_output_path, left_bound, right_bound);
