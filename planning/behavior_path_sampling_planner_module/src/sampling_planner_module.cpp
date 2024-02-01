@@ -379,7 +379,7 @@ BehaviorModuleOutput SamplingPlannerModule::plan()
   const auto reference_path_ptr =
     std::make_shared<PathWithLaneId>(getPreviousModuleOutput().reference_path);
   if (reference_path_ptr->points.empty()) {
-    return {};
+    return getPreviousModuleOutput();
   }
   auto reference_spline = [&]() -> sampler_common::transform::Spline2D {
     std::vector<double> x;
@@ -444,7 +444,7 @@ BehaviorModuleOutput SamplingPlannerModule::plan()
     RCLCPP_ERROR(
       rclcpp::get_logger("behavior_path_planner").get_child("utils"),
       "failed to find closest lanelet within route!!!");
-    return {};
+    return getPreviousModuleOutput();
   }
   const auto current_lane_sequence = planner_data_->route_handler->getLaneletSequence(
     current_lane, ego_pose, p.backward_path_length, p.forward_path_length);
@@ -630,6 +630,7 @@ BehaviorModuleOutput SamplingPlannerModule::plan()
     out.path = (prev_sampling_path_) ? out_path : getPreviousModuleOutput().path;
     out.reference_path = getPreviousModuleOutput().reference_path;
     out.drivable_area_info = getPreviousModuleOutput().drivable_area_info;
+    extendOutputDrivableArea(out);
     return out;
   }
 
