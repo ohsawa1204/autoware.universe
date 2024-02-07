@@ -5,12 +5,13 @@ import sys
 import freespace_planning_algorithms.freespace_planning_algorithms_python as fp
 import numpy as np
 from pyquaternion import Quaternion
+import yaml
 
 from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import Pose
 from rclpy.serialization import serialize_message
 
-vehicle_shape = fp.VehicleShape(3, 2, 1)
+vehicle_shape = fp.VehicleShape(3, 1, 1)
 astar_param = fp.AstarParam()
 planner_param = fp.PlannerCommonParam()
 
@@ -32,38 +33,68 @@ planner_param.obstacle_threshold= 100
 
 # -- A* search Configurations --
 astar_param.only_behind_solutions= False
+astar_param.use_back = True
 astar_param.distance_heuristic_weight= 1.0
 
 astar = fp.AstarSearch(planner_param, vehicle_shape, astar_param)
 
+with open('param/costmap.yml', 'r') as yml:
+    costmap_yml = yaml.safe_load(yml)
+
 costmap = OccupancyGrid()
-costmap.info.resolution = 0.2
-costmap.info.height = 350
-costmap.info.width = 350
-costmap.data = [0 for i in range(350*350)]
+costmap.info.resolution = costmap_yml['info']['resolution']
+costmap.info.height = costmap_yml['info']['height']
+costmap.info.width = costmap_yml['info']['width']
+costmap.info.origin.position.x = costmap_yml['info']['origin']['position']['x']
+costmap.info.origin.position.y = costmap_yml['info']['origin']['position']['y']
+costmap.info.origin.position.z = costmap_yml['info']['origin']['position']['z']
+costmap.data = costmap_yml['data']
 costmap_byte = serialize_message(costmap)
 
 astar.setMap(costmap_byte)
 
+
 start_pose = Pose()
 goal_pose = Pose()
 
-for x in range(-10,10):
-    for y in range(-10,10):
-        for yaw in range(10):
-            # start_pose.position.x = 1.0
-            # start_pose.orientation.y = 1.0
-            goal_pose.position.x = float(x)
-            goal_pose.position.y = float(y)
+with open('param/initialpose.yml', 'r') as yml:
+    initial_yml = yaml.safe_load(yml)
+with open('param/goalpose.yml', 'r') as yml:
+    goal_yml = yaml.safe_load(yml)
+
+start_pose.position.x = initial_yml['pose']['pose']['position']['x']
+start_pose.position.y = initial_yml['pose']['pose']['position']['y']
+start_pose.position.z = initial_yml['pose']['pose']['position']['z']
+start_pose.orientation.z = initial_yml['pose']['pose']['orientation']['z']
+start_pose.orientation.w = initial_yml['pose']['pose']['orientation']['w']
+
+goal_pose.position.x = goal_yml['pose']['position']['x']
+goal_pose.position.y = goal_yml['pose']['position']['y']
+goal_pose.position.z = goal_yml['pose']['position']['z']
+goal_pose.orientation.z = goal_yml['pose']['orientation']['z']
+goal_pose.orientation.w = goal_yml['pose']['orientation']['w']
+
+start_pose_byte = serialize_message(start_pose)
+goal_pose_byte = serialize_message(goal_pose)
+
+print(astar.makePlan(start_pose_byte, goal_pose_byte))
+
+# for x in range(-10,10):
+#     for y in range(-10,10):
+#         for yaw in range(10):
+#             # start_pose.position.x = 1.0
+#             # start_pose.orientation.y = 1.0
+#             goal_pose.position.x = float(x)
+#             goal_pose.position.y = float(y)
             
-            quaterinon = Quaternion(axis=[0, 0, 1], angle=2*np.pi*(yaw/10))
-            goal_pose.orientation.w = quaterinon.w
-            goal_pose.orientation.x = quaterinon.x
-            goal_pose.orientation.y = quaterinon.y
-            goal_pose.orientation.z = quaterinon.z
+#             quaterinon = Quaternion(axis=[0, 0, 1], angle=2*np.pi*(yaw/10))
+#             goal_pose.orientation.w = quaterinon.w
+#             goal_pose.orientation.x = quaterinon.x
+#             goal_pose.orientation.y = quaterinon.y
+#             goal_pose.orientation.z = quaterinon.z
 
-            start_pose_byte = serialize_message(start_pose)
-            goal_pose_byte = serialize_message(goal_pose)
+#             start_pose_byte = serialize_message(start_pose)
+#             goal_pose_byte = serialize_message(goal_pose)
 
-            if astar.makePlan(start_pose_byte, goal_pose_byte):
-                print("success")
+#             if astar.makePlan(start_pose_byte, goal_pose_byte):
+#                 print("success")
