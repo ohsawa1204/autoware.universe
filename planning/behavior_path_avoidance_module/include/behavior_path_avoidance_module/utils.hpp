@@ -36,6 +36,9 @@ bool isOnRight(const ObjectData & obj);
 double calcShiftLength(
   const bool & is_object_on_right, const double & overhang_dist, const double & avoid_margin);
 
+bool isWithinLanes(
+  const lanelet::ConstLanelets & lanelets, std::shared_ptr<const PlannerData> & planner_data);
+
 bool isShiftNecessary(const bool & is_object_on_right, const double & shift_length);
 
 bool isSameDirectionShift(const bool & is_object_on_right, const double & shift_length);

@@ -979,6 +979,44 @@ double calcShiftLength(
   return std::fabs(shift_length) > 1e-3 ? shift_length : 0.0;
 }
 
+bool isWithinLanes(
+  const lanelet::ConstLanelets & lanelets, std::shared_ptr<const PlannerData> & planner_data)
+{
+  const auto & rh = planner_data->route_handler;
+  const auto & ego_pose = planner_data->self_odometry->pose.pose;
+  const auto transform = tier4_autoware_utils::pose2transform(ego_pose);
+  const auto footprint = tier4_autoware_utils::transformVector(
+    planner_data->parameters.vehicle_info.createFootprint(), transform);
+
+  lanelet::ConstLanelet closest_lanelet{};
+  if (!lanelet::utils::query::getClosestLanelet(lanelets, ego_pose, &closest_lanelet)) {
+    return true;
+  }
+
+  lanelet::ConstLanelets concat_lanelets{};
+
+  // push previous lanelet
+  lanelet::ConstLanelets prev_lanelet;
+  if (rh->getPreviousLaneletsWithinRoute(closest_lanelet, &prev_lanelet)) {
+    concat_lanelets.push_back(prev_lanelet.front());
+  }
+
+  // push nearest lanelet
+  {
+    concat_lanelets.push_back(closest_lanelet);
+  }
+
+  // push next lanelet
+  lanelet::ConstLanelet next_lanelet;
+  if (rh->getNextLaneletWithinRoute(closest_lanelet, &next_lanelet)) {
+    concat_lanelets.push_back(next_lanelet);
+  }
+
+  const auto combine_lanelet = lanelet::utils::combineLaneletsShape(concat_lanelets);
+
+  return boost::geometry::within(footprint, combine_lanelet.polygon2d().basicPolygon());
+}
+
 bool isShiftNecessary(const bool & is_object_on_right, const double & shift_length)
 {
   /**
