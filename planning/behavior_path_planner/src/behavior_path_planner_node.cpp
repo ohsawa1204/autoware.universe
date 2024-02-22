@@ -40,6 +40,17 @@ rclcpp::SubscriptionOptions createSubscriptionOptions(rclcpp::Node * node_ptr)
 
   return sub_opt;
 }
+
+rclcpp::SubscriptionOptions createNoExecSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
 }  // namespace
 
 namespace behavior_path_planner
@@ -82,44 +93,44 @@ BehaviorPathPlannerNode::BehaviorPathPlannerNode(const rclcpp::NodeOptions & nod
   // subscriber
   velocity_subscriber_ = create_subscription<Odometry>(
     "~/input/odometry", 1, std::bind(&BehaviorPathPlannerNode::onOdometry, this, _1),
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
   acceleration_subscriber_ = create_subscription<AccelWithCovarianceStamped>(
     "~/input/accel", 1, std::bind(&BehaviorPathPlannerNode::onAcceleration, this, _1),
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
   perception_subscriber_ = create_subscription<PredictedObjects>(
     "~/input/perception", 1, std::bind(&BehaviorPathPlannerNode::onPerception, this, _1),
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
   occupancy_grid_subscriber_ = create_subscription<OccupancyGrid>(
     "~/input/occupancy_grid_map", 1, std::bind(&BehaviorPathPlannerNode::onOccupancyGrid, this, _1),
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
   costmap_subscriber_ = create_subscription<OccupancyGrid>(
     "~/input/costmap", 1, std::bind(&BehaviorPathPlannerNode::onCostMap, this, _1),
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
   traffic_signals_subscriber_ =
     this->create_subscription<autoware_perception_msgs::msg::TrafficSignalArray>(
       "~/input/traffic_signals", 1, std::bind(&BehaviorPathPlannerNode::onTrafficSignals, this, _1),
-      createSubscriptionOptions(this));
+      createNoExecSubscriptionOptions(this));
   lateral_offset_subscriber_ = this->create_subscription<LateralOffset>(
     "~/input/lateral_offset", 1, std::bind(&BehaviorPathPlannerNode::onLateralOffset, this, _1),
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
   operation_mode_subscriber_ = create_subscription<OperationModeState>(
     "/system/operation_mode/state", qos_transient_local,
     std::bind(&BehaviorPathPlannerNode::onOperationMode, this, _1),
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
   scenario_subscriber_ = create_subscription<Scenario>(
     "~/input/scenario", 1,
     [this](const Scenario::ConstSharedPtr msg) {
-      current_scenario_ = std::make_shared<Scenario>(*msg);
+      assert(false);
     },
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
 
   // route_handler
   vector_map_subscriber_ = create_subscription<HADMapBin>(
     "~/input/vector_map", qos_transient_local, std::bind(&BehaviorPathPlannerNode::onMap, this, _1),
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
   route_subscriber_ = create_subscription<LaneletRoute>(
     "~/input/route", qos_transient_local, std::bind(&BehaviorPathPlannerNode::onRoute, this, _1),
-    createSubscriptionOptions(this));
+    createNoExecSubscriptionOptions(this));
 
   {
     const std::string path_candidate_name_space = "/planning/path_candidate/";
@@ -313,8 +324,95 @@ bool BehaviorPathPlannerNode::isDataReady()
   return true;
 }
 
+void BehaviorPathPlannerNode::take()
+{
+  Odometry::SharedPtr odometry_msg = std::make_shared<Odometry>();
+  AccelWithCovarianceStamped::SharedPtr acceleration_msg = std::make_shared<AccelWithCovarianceStamped>();
+  PredictedObjects::SharedPtr dynamic_object_msg = std::make_shared<PredictedObjects>();
+  OccupancyGrid::SharedPtr occupancy_grid_msg = std::make_shared<OccupancyGrid>();
+  OccupancyGrid::SharedPtr costmap_msg = std::make_shared<OccupancyGrid>();
+  TrafficSignalArray::SharedPtr traffic_signal_msg = std::make_shared<TrafficSignalArray>();
+  HADMapBin::SharedPtr map_msg = std::make_shared<HADMapBin>();
+  LaneletRoute::SharedPtr route_msg = std::make_shared<LaneletRoute>();
+  OperationModeState::SharedPtr operation_mode_msg = std::make_shared<OperationModeState>();
+  LateralOffset::SharedPtr lateral_offset_msg = std::make_shared<LateralOffset>();
+  Scenario::SharedPtr scenario_msg = std::make_shared<Scenario>();
+  rclcpp::MessageInfo msg_info;
+
+  /* Odometry */
+  if (velocity_subscriber_->take(*odometry_msg, msg_info))
+    planner_data_->self_odometry = odometry_msg;
+
+  /* Acceleration */
+  if (acceleration_subscriber_->take(*acceleration_msg, msg_info))
+    planner_data_->self_acceleration = acceleration_msg;
+
+  /* Perception */
+  if (perception_subscriber_->take(*dynamic_object_msg, msg_info))
+    planner_data_->dynamic_object = dynamic_object_msg;
+
+  /* OccupancyGrid */
+  if (occupancy_grid_subscriber_->take(*occupancy_grid_msg, msg_info))
+    planner_data_->occupancy_grid = occupancy_grid_msg;
+
+  /* CostMap */
+  if (costmap_subscriber_->take(*costmap_msg, msg_info))
+    planner_data_->costmap = costmap_msg;
+
+  /* TrafficSignals */
+  if (traffic_signals_subscriber_->take(*traffic_signal_msg, msg_info)) {
+    planner_data_->traffic_light_id_map.clear();
+    for (const auto & signal : traffic_signal_msg->signals) {
+      TrafficSignalStamped traffic_signal;
+      traffic_signal.stamp = traffic_signal_msg->stamp;
+      traffic_signal.signal = signal;
+      planner_data_->traffic_light_id_map[signal.traffic_signal_id] = traffic_signal;
+    }
+  }
+
+  /* Map */
+  if (vector_map_subscriber_->take(*map_msg, msg_info)) {
+    map_ptr_ = map_msg;
+    has_received_map_ = true;
+  }
+
+  /* Route */
+  if (route_subscriber_->take(*route_msg, msg_info)) {
+    if (route_msg->segments.empty())
+      RCLCPP_ERROR(get_logger(), "input route is empty. ignored");
+    else {
+      route_ptr_ = route_msg;
+      has_received_route_ = true;
+    }
+  }
+
+  /* OperationMode */
+  if (operation_mode_subscriber_->take(*operation_mode_msg, msg_info))
+    planner_data_->operation_mode = operation_mode_msg;
+
+  /* LateralOffset */
+  if (lateral_offset_subscriber_->take(*lateral_offset_msg, msg_info)) {
+    if (!planner_data_->lateral_offset)
+      planner_data_->lateral_offset = lateral_offset_msg;
+    else {
+      const auto & new_offset = lateral_offset_msg->lateral_offset;
+      const auto & old_offset = planner_data_->lateral_offset->lateral_offset;
+
+      // offset is not changed.
+      if (!(std::abs(old_offset - new_offset) < 1e-4))
+        planner_data_->lateral_offset = lateral_offset_msg;
+    }
+  }
+
+  /* Scenario */
+  if (scenario_subscriber_->take(*scenario_msg, msg_info))
+    current_scenario_ = scenario_msg;
+}
+
 void BehaviorPathPlannerNode::run()
 {
+  take();
+
   if (!isDataReady()) {
     return;
   }
@@ -757,81 +855,43 @@ bool BehaviorPathPlannerNode::keepInputPoints(
 
 void BehaviorPathPlannerNode::onOdometry(const Odometry::ConstSharedPtr msg)
 {
-  const std::lock_guard<std::mutex> lock(mutex_pd_);
-  planner_data_->self_odometry = msg;
+  assert(false);
 }
 void BehaviorPathPlannerNode::onAcceleration(const AccelWithCovarianceStamped::ConstSharedPtr msg)
 {
-  const std::lock_guard<std::mutex> lock(mutex_pd_);
-  planner_data_->self_acceleration = msg;
+  assert(false);
 }
 void BehaviorPathPlannerNode::onPerception(const PredictedObjects::ConstSharedPtr msg)
 {
-  const std::lock_guard<std::mutex> lock(mutex_pd_);
-  planner_data_->dynamic_object = msg;
+  assert(false);
 }
 void BehaviorPathPlannerNode::onOccupancyGrid(const OccupancyGrid::ConstSharedPtr msg)
 {
-  const std::lock_guard<std::mutex> lock(mutex_pd_);
-  planner_data_->occupancy_grid = msg;
+  assert(false);
 }
 void BehaviorPathPlannerNode::onCostMap(const OccupancyGrid::ConstSharedPtr msg)
 {
-  const std::lock_guard<std::mutex> lock(mutex_pd_);
-  planner_data_->costmap = msg;
+  assert(false);
 }
 void BehaviorPathPlannerNode::onTrafficSignals(const TrafficSignalArray::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_pd_);
-
-  planner_data_->traffic_light_id_map.clear();
-  for (const auto & signal : msg->signals) {
-    TrafficSignalStamped traffic_signal;
-    traffic_signal.stamp = msg->stamp;
-    traffic_signal.signal = signal;
-    planner_data_->traffic_light_id_map[signal.traffic_signal_id] = traffic_signal;
-  }
+  assert(false);
 }
 void BehaviorPathPlannerNode::onMap(const HADMapBin::ConstSharedPtr msg)
 {
-  const std::lock_guard<std::mutex> lock(mutex_map_);
-  map_ptr_ = msg;
-  has_received_map_ = true;
+  assert(false);
 }
 void BehaviorPathPlannerNode::onRoute(const LaneletRoute::ConstSharedPtr msg)
 {
-  if (msg->segments.empty()) {
-    RCLCPP_ERROR(get_logger(), "input route is empty. ignored");
-    return;
-  }
-
-  const std::lock_guard<std::mutex> lock(mutex_route_);
-  route_ptr_ = msg;
-  has_received_route_ = true;
+  assert(false);
 }
 void BehaviorPathPlannerNode::onOperationMode(const OperationModeState::ConstSharedPtr msg)
 {
-  const std::lock_guard<std::mutex> lock(mutex_pd_);
-  planner_data_->operation_mode = msg;
+  assert(false);
 }
 void BehaviorPathPlannerNode::onLateralOffset(const LateralOffset::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_pd_);
-
-  if (!planner_data_->lateral_offset) {
-    planner_data_->lateral_offset = msg;
-    return;
-  }
-
-  const auto & new_offset = msg->lateral_offset;
-  const auto & old_offset = planner_data_->lateral_offset->lateral_offset;
-
-  // offset is not changed.
-  if (std::abs(old_offset - new_offset) < 1e-4) {
-    return;
-  }
-
-  planner_data_->lateral_offset = msg;
+  assert(false);
 }
 
 SetParametersResult BehaviorPathPlannerNode::onSetParam(
