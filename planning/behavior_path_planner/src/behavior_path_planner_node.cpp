@@ -340,6 +340,8 @@ void BehaviorPathPlannerNode::take()
   Scenario::SharedPtr scenario_msg = std::make_shared<Scenario>();
   rclcpp::MessageInfo msg_info;
 
+  std::unique_lock<std::mutex> lk_pd(mutex_pd_);  // for planner_data_
+
   /* Odometry */
   if (velocity_subscriber_->take(*odometry_msg, msg_info))
     planner_data_->self_odometry = odometry_msg;
