@@ -94,43 +94,44 @@ BehaviorVelocityPlannerNode::BehaviorVelocityPlannerNode(const rclcpp::NodeOptio
       "~/input/path_with_lane_id", 1, std::bind(&BehaviorVelocityPlannerNode::onTrigger, this, _1),
       createSubscriptionOptions(this));
 
+  const auto subscription_no_exec_options = createNoExecSubscriptionOptions(this);
   // Subscribers
   sub_predicted_objects_ =
     this->create_subscription<autoware_auto_perception_msgs::msg::PredictedObjects>(
       "~/input/dynamic_objects", 1,
       std::bind(&BehaviorVelocityPlannerNode::onPredictedObjects, this, _1),
-      createNoExecSubscriptionOptions(this));
+      subscription_no_exec_options);
   sub_no_ground_pointcloud_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "~/input/no_ground_pointcloud", rclcpp::SensorDataQoS(),
     std::bind(&BehaviorVelocityPlannerNode::onNoGroundPointCloud, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   sub_vehicle_odometry_ = this->create_subscription<nav_msgs::msg::Odometry>(
-    "~/input/vehicle_odometry", 1, std::bind(&BehaviorVelocityPlannerNode::onOdometry, this, _1),
-    createNoExecSubscriptionOptions(this));
+    "~/input/vehicle_odometry", ODOMETRY_TRIGGER_RATIO, std::bind(&BehaviorVelocityPlannerNode::onOdometry, this, _1),
+    subscription_no_exec_options);
   sub_acceleration_ = this->create_subscription<geometry_msgs::msg::AccelWithCovarianceStamped>(
     "~/input/accel", 1, std::bind(&BehaviorVelocityPlannerNode::onAcceleration, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   sub_lanelet_map_ = this->create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>(
     "~/input/vector_map", rclcpp::QoS(10).transient_local(),
     std::bind(&BehaviorVelocityPlannerNode::onLaneletMap, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   sub_traffic_signals_ =
     this->create_subscription<autoware_perception_msgs::msg::TrafficSignalArray>(
       "~/input/traffic_signals", 1,
       std::bind(&BehaviorVelocityPlannerNode::onTrafficSignals, this, _1),
-      createNoExecSubscriptionOptions(this));
+      subscription_no_exec_options);
   sub_external_velocity_limit_ = this->create_subscription<VelocityLimit>(
     "~/input/external_velocity_limit_mps", rclcpp::QoS{1}.transient_local(),
     std::bind(&BehaviorVelocityPlannerNode::onExternalVelocityLimit, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   sub_virtual_traffic_light_states_ =
     this->create_subscription<tier4_v2x_msgs::msg::VirtualTrafficLightStateArray>(
       "~/input/virtual_traffic_light_states", 1,
       std::bind(&BehaviorVelocityPlannerNode::onVirtualTrafficLightStates, this, _1),
-      createNoExecSubscriptionOptions(this));
+      subscription_no_exec_options);
   sub_occupancy_grid_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
     "~/input/occupancy_grid", 1, std::bind(&BehaviorVelocityPlannerNode::onOccupancyGrid, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
 
   srv_load_plugin_ = create_service<LoadPlugin>(
     "~/service/load_plugin", std::bind(&BehaviorVelocityPlannerNode::onLoadPlugin, this, _1, _2));
@@ -336,7 +337,7 @@ void BehaviorVelocityPlannerNode::take()
   }
 
   /* Odometry */
-  if (sub_vehicle_odometry_->take(*odometry_msg, msg_info)) {
+  while (sub_vehicle_odometry_->take(*odometry_msg, msg_info)) {
     auto current_odometry = std::make_shared<geometry_msgs::msg::PoseStamped>();
     current_odometry->header = odometry_msg->header;
     current_odometry->pose = odometry_msg->pose.pose;

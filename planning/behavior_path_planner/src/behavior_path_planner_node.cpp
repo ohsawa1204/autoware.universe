@@ -90,47 +90,48 @@ BehaviorPathPlannerNode::BehaviorPathPlannerNode(const rclcpp::NodeOptions & nod
   bound_publisher_ = create_publisher<MarkerArray>("~/debug/bound", 1);
 
   const auto qos_transient_local = rclcpp::QoS{1}.transient_local();
+  const auto subscription_no_exec_options = createNoExecSubscriptionOptions(this);
   // subscriber
   velocity_subscriber_ = create_subscription<Odometry>(
     "~/input/odometry", 1, std::bind(&BehaviorPathPlannerNode::onOdometry, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   acceleration_subscriber_ = create_subscription<AccelWithCovarianceStamped>(
     "~/input/accel", 1, std::bind(&BehaviorPathPlannerNode::onAcceleration, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   perception_subscriber_ = create_subscription<PredictedObjects>(
     "~/input/perception", 1, std::bind(&BehaviorPathPlannerNode::onPerception, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   occupancy_grid_subscriber_ = create_subscription<OccupancyGrid>(
     "~/input/occupancy_grid_map", 1, std::bind(&BehaviorPathPlannerNode::onOccupancyGrid, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   costmap_subscriber_ = create_subscription<OccupancyGrid>(
     "~/input/costmap", 1, std::bind(&BehaviorPathPlannerNode::onCostMap, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   traffic_signals_subscriber_ =
     this->create_subscription<autoware_perception_msgs::msg::TrafficSignalArray>(
       "~/input/traffic_signals", 1, std::bind(&BehaviorPathPlannerNode::onTrafficSignals, this, _1),
-      createNoExecSubscriptionOptions(this));
+      subscription_no_exec_options);
   lateral_offset_subscriber_ = this->create_subscription<LateralOffset>(
     "~/input/lateral_offset", 1, std::bind(&BehaviorPathPlannerNode::onLateralOffset, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   operation_mode_subscriber_ = create_subscription<OperationModeState>(
     "/system/operation_mode/state", qos_transient_local,
     std::bind(&BehaviorPathPlannerNode::onOperationMode, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   scenario_subscriber_ = create_subscription<Scenario>(
     "~/input/scenario", 1,
     [this](const Scenario::ConstSharedPtr msg) {
       assert(false);
     },
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
 
   // route_handler
   vector_map_subscriber_ = create_subscription<HADMapBin>(
     "~/input/vector_map", qos_transient_local, std::bind(&BehaviorPathPlannerNode::onMap, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
   route_subscriber_ = create_subscription<LaneletRoute>(
     "~/input/route", qos_transient_local, std::bind(&BehaviorPathPlannerNode::onRoute, this, _1),
-    createNoExecSubscriptionOptions(this));
+    subscription_no_exec_options);
 
   {
     const std::string path_candidate_name_space = "/planning/path_candidate/";

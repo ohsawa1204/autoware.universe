@@ -104,6 +104,7 @@ private:
   double forward_path_length_;
   double backward_path_length_;
   double behavior_output_path_interval_;
+  const int ODOMETRY_TRIGGER_RATIO = 5;
 
   // member
   PlannerData planner_data_;
