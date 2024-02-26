@@ -121,6 +121,7 @@ BehaviorPathPlannerNode::BehaviorPathPlannerNode(const rclcpp::NodeOptions & nod
   scenario_subscriber_ = create_subscription<Scenario>(
     "~/input/scenario", 1,
     [this](const Scenario::ConstSharedPtr msg) {
+      (void)msg;
       assert(false);
     },
     subscription_no_exec_options);
@@ -858,42 +859,52 @@ bool BehaviorPathPlannerNode::keepInputPoints(
 
 void BehaviorPathPlannerNode::onOdometry(const Odometry::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 void BehaviorPathPlannerNode::onAcceleration(const AccelWithCovarianceStamped::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 void BehaviorPathPlannerNode::onPerception(const PredictedObjects::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 void BehaviorPathPlannerNode::onOccupancyGrid(const OccupancyGrid::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 void BehaviorPathPlannerNode::onCostMap(const OccupancyGrid::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 void BehaviorPathPlannerNode::onTrafficSignals(const TrafficSignalArray::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 void BehaviorPathPlannerNode::onMap(const HADMapBin::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 void BehaviorPathPlannerNode::onRoute(const LaneletRoute::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 void BehaviorPathPlannerNode::onOperationMode(const OperationModeState::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 void BehaviorPathPlannerNode::onLateralOffset(const LateralOffset::ConstSharedPtr msg)
 {
+  (void)msg;
   assert(false);
 }
 
