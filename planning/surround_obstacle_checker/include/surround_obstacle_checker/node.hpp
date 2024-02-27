@@ -84,6 +84,8 @@ private:
 
   std::array<double, 3> getCheckDistances(const std::string & str_label) const;
 
+  void take();
+
   void onTimer();
 
   void onPointCloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg);

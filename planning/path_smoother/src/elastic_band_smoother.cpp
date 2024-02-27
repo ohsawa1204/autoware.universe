@@ -67,6 +67,17 @@ bool hasZeroVelocity(const TrajectoryPoint & traj_point)
   constexpr double zero_vel = 0.0001;
   return std::abs(traj_point.longitudinal_velocity_mps) < zero_vel;
 }
+
+rclcpp::SubscriptionOptions createNoExecSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
 }  // namespace
 
 ElasticBandSmoother::ElasticBandSmoother(const rclcpp::NodeOptions & node_options)
@@ -80,7 +91,8 @@ ElasticBandSmoother::ElasticBandSmoother(const rclcpp::NodeOptions & node_option
   path_sub_ = create_subscription<Path>(
     "~/input/path", 1, std::bind(&ElasticBandSmoother::onPath, this, std::placeholders::_1));
   odom_sub_ = create_subscription<Odometry>(
-    "~/input/odometry", 1, [this](const Odometry::ConstSharedPtr msg) { ego_state_ptr_ = msg; });
+    "~/input/odometry", 1, [this](const Odometry::ConstSharedPtr msg) { (void)msg; assert(false); },
+    createNoExecSubscriptionOptions(this));
 
   // debug publisher
   debug_extended_traj_pub_ = create_publisher<Trajectory>("~/debug/extended_traj", 1);
@@ -149,8 +161,19 @@ void ElasticBandSmoother::resetPreviousData()
   prev_optimized_traj_points_ptr_ = nullptr;
 }
 
+void ElasticBandSmoother::take()
+{
+  Odometry::SharedPtr ego_state_msg = std::make_shared<Odometry>();
+  rclcpp::MessageInfo msg_info;
+
+  if (odom_sub_->take(*ego_state_msg, msg_info))
+    ego_state_ptr_ = ego_state_msg;
+}
+
 void ElasticBandSmoother::onPath(const Path::ConstSharedPtr path_ptr)
 {
+  take();
+
   time_keeper_ptr_->init();
   time_keeper_ptr_->tic(__func__);
 
