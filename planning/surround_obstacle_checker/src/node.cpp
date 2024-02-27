@@ -146,6 +146,17 @@ Polygon2d createSelfPolygon(
 
   return ego_polygon;
 }
+
+rclcpp::SubscriptionOptions createNoExecSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
 }  // namespace
 
 SurroundObstacleCheckerNode::SurroundObstacleCheckerNode(const rclcpp::NodeOptions & node_options)
@@ -207,16 +218,20 @@ SurroundObstacleCheckerNode::SurroundObstacleCheckerNode(const rclcpp::NodeOptio
   pub_velocity_limit_ = this->create_publisher<VelocityLimit>(
     "~/output/max_velocity", rclcpp::QoS{1}.transient_local());
 
+  auto subscription_no_exec_options = createNoExecSubscriptionOptions(this);
   // Subscribers
   sub_pointcloud_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/input/pointcloud", rclcpp::SensorDataQoS(),
-    std::bind(&SurroundObstacleCheckerNode::onPointCloud, this, std::placeholders::_1));
+    "~/input/pointcloud", 1,
+    std::bind(&SurroundObstacleCheckerNode::onPointCloud, this, std::placeholders::_1),
+    subscription_no_exec_options);
   sub_dynamic_objects_ = this->create_subscription<PredictedObjects>(
     "~/input/objects", 1,
-    std::bind(&SurroundObstacleCheckerNode::onDynamicObjects, this, std::placeholders::_1));
+    std::bind(&SurroundObstacleCheckerNode::onDynamicObjects, this, std::placeholders::_1),
+    subscription_no_exec_options);
   sub_odometry_ = this->create_subscription<nav_msgs::msg::Odometry>(
     "~/input/odometry", 1,
-    std::bind(&SurroundObstacleCheckerNode::onOdometry, this, std::placeholders::_1));
+    std::bind(&SurroundObstacleCheckerNode::onOdometry, this, std::placeholders::_1),
+    subscription_no_exec_options);
 
   // Parameter callback
   set_param_res_ = this->add_on_set_parameters_callback(
@@ -281,8 +296,27 @@ rcl_interfaces::msg::SetParametersResult SurroundObstacleCheckerNode::onParam(
   return result;
 }
 
+void SurroundObstacleCheckerNode::take()
+{
+  sensor_msgs::msg::PointCloud2::SharedPtr pointcloud_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
+  PredictedObjects::SharedPtr object_msg = std::make_shared<PredictedObjects>();
+  nav_msgs::msg::Odometry::SharedPtr odometry_msg = std::make_shared<nav_msgs::msg::Odometry>();
+  rclcpp::MessageInfo msg_info;
+
+  if (sub_pointcloud_->take(*pointcloud_msg, msg_info))
+    pointcloud_ptr_ = pointcloud_msg;
+
+  if (sub_dynamic_objects_->take(*object_msg, msg_info))
+    object_ptr_ = object_msg;
+
+  if (sub_odometry_->take(*odometry_msg, msg_info))
+    odometry_ptr_ = odometry_msg;
+}
+
 void SurroundObstacleCheckerNode::onTimer()
 {
+  take();
+
   if (!odometry_ptr_) {
     RCLCPP_INFO_THROTTLE(
       this->get_logger(), *this->get_clock(), 5000 /* ms */, "waiting for current velocity...");
@@ -381,17 +415,20 @@ void SurroundObstacleCheckerNode::onTimer()
 void SurroundObstacleCheckerNode::onPointCloud(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
 {
-  pointcloud_ptr_ = msg;
+  (void)msg;
+  assert(false);
 }
 
 void SurroundObstacleCheckerNode::onDynamicObjects(const PredictedObjects::ConstSharedPtr msg)
 {
-  object_ptr_ = msg;
+  (void)msg;
+  assert(false);
 }
 
 void SurroundObstacleCheckerNode::onOdometry(const nav_msgs::msg::Odometry::ConstSharedPtr msg)
 {
-  odometry_ptr_ = msg;
+  (void)msg;
+  assert(false);
 }
 
 std::optional<Obstacle> SurroundObstacleCheckerNode::getNearestObstacle() const

@@ -218,6 +218,17 @@ bool isLowerConsideringHysteresis(
   }
   return false;
 }
+
+rclcpp::SubscriptionOptions createNoExecSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
 }  // namespace
 
 namespace motion_planning
@@ -335,19 +346,23 @@ ObstacleCruisePlannerNode::ObstacleCruisePlannerNode(const rclcpp::NodeOptions &
 {
   using std::placeholders::_1;
 
+  const auto subscription_no_exec_options = createNoExecSubscriptionOptions(this);
   // subscriber
   traj_sub_ = create_subscription<Trajectory>(
     "~/input/trajectory", rclcpp::QoS{1},
     std::bind(&ObstacleCruisePlannerNode::onTrajectory, this, _1));
   objects_sub_ = create_subscription<PredictedObjects>(
     "~/input/objects", rclcpp::QoS{1},
-    [this](const PredictedObjects::ConstSharedPtr msg) { objects_ptr_ = msg; });
+    [this](const PredictedObjects::ConstSharedPtr msg) { (void)msg; assert(false); },
+    subscription_no_exec_options);
   odom_sub_ = create_subscription<Odometry>(
     "~/input/odometry", rclcpp::QoS{1},
-    [this](const Odometry::ConstSharedPtr msg) { ego_odom_ptr_ = msg; });
+    [this](const Odometry::ConstSharedPtr msg) { (void)msg; assert(false); },
+    subscription_no_exec_options);
   acc_sub_ = create_subscription<AccelWithCovarianceStamped>(
     "~/input/acceleration", rclcpp::QoS{1},
-    [this](const AccelWithCovarianceStamped::ConstSharedPtr msg) { ego_accel_ptr_ = msg; });
+    [this](const AccelWithCovarianceStamped::ConstSharedPtr msg) { (void)msg; assert(false); },
+    subscription_no_exec_options);
 
   // publisher
   trajectory_pub_ = create_publisher<Trajectory>("~/output/trajectory", 1);
@@ -472,9 +487,28 @@ rcl_interfaces::msg::SetParametersResult ObstacleCruisePlannerNode::onParam(
   return result;
 }
 
+void ObstacleCruisePlannerNode::take()
+{
+  PredictedObjects::SharedPtr objects_msg = std::make_shared<PredictedObjects>();
+  Odometry::SharedPtr ego_odom_msg = std::make_shared<Odometry>();
+  AccelWithCovarianceStamped::SharedPtr ego_accel_msg = std::make_shared<AccelWithCovarianceStamped>();
+  rclcpp::MessageInfo msg_info;
+
+  if (objects_sub_->take(*objects_msg, msg_info))
+    objects_ptr_ = objects_msg;
+
+  if (odom_sub_->take(*ego_odom_msg, msg_info))
+    ego_odom_ptr_ = ego_odom_msg;
+
+  if (acc_sub_->take(*ego_accel_msg, msg_info))
+    ego_accel_ptr_ = ego_accel_msg;
+}
+
 void ObstacleCruisePlannerNode::onTrajectory(const Trajectory::ConstSharedPtr msg)
 {
   const auto traj_points = motion_utils::convertToTrajectoryPointArray(*msg);
+
+  take();
 
   // check if subscribed variables are ready
   if (traj_points.empty() || !ego_odom_ptr_ || !ego_accel_ptr_ || !objects_ptr_) {

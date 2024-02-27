@@ -76,6 +76,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr sub_occupancy_grid_;
   rclcpp::Subscription<VelocityLimit>::SharedPtr sub_external_velocity_limit_;
 
+  void take();
   void onTrigger(
     const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg);
   void onPredictedObjects(
@@ -103,6 +104,7 @@ private:
   double forward_path_length_;
   double backward_path_length_;
   double behavior_output_path_interval_;
+  const int ODOMETRY_TRIGGER_RATIO = 5;
 
   // member
   PlannerData planner_data_;

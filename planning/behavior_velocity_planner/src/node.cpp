@@ -50,6 +50,17 @@ rclcpp::SubscriptionOptions createSubscriptionOptions(rclcpp::Node * node_ptr)
 
   return sub_opt;
 }
+
+rclcpp::SubscriptionOptions createNoExecSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
 }  // namespace
 
 namespace behavior_velocity_planner
@@ -83,42 +94,44 @@ BehaviorVelocityPlannerNode::BehaviorVelocityPlannerNode(const rclcpp::NodeOptio
       "~/input/path_with_lane_id", 1, std::bind(&BehaviorVelocityPlannerNode::onTrigger, this, _1),
       createSubscriptionOptions(this));
 
+  const auto subscription_no_exec_options = createNoExecSubscriptionOptions(this);
   // Subscribers
   sub_predicted_objects_ =
     this->create_subscription<autoware_auto_perception_msgs::msg::PredictedObjects>(
       "~/input/dynamic_objects", 1,
       std::bind(&BehaviorVelocityPlannerNode::onPredictedObjects, this, _1),
-      createSubscriptionOptions(this));
+      subscription_no_exec_options);
   sub_no_ground_pointcloud_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "~/input/no_ground_pointcloud", rclcpp::SensorDataQoS(),
     std::bind(&BehaviorVelocityPlannerNode::onNoGroundPointCloud, this, _1),
-    createSubscriptionOptions(this));
+    subscription_no_exec_options);
   sub_vehicle_odometry_ = this->create_subscription<nav_msgs::msg::Odometry>(
-    "~/input/vehicle_odometry", 1, std::bind(&BehaviorVelocityPlannerNode::onOdometry, this, _1),
-    createSubscriptionOptions(this));
+    "~/input/vehicle_odometry", ODOMETRY_TRIGGER_RATIO, std::bind(&BehaviorVelocityPlannerNode::onOdometry, this, _1),
+    subscription_no_exec_options);
   sub_acceleration_ = this->create_subscription<geometry_msgs::msg::AccelWithCovarianceStamped>(
     "~/input/accel", 1, std::bind(&BehaviorVelocityPlannerNode::onAcceleration, this, _1),
-    createSubscriptionOptions(this));
+    subscription_no_exec_options);
   sub_lanelet_map_ = this->create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>(
     "~/input/vector_map", rclcpp::QoS(10).transient_local(),
     std::bind(&BehaviorVelocityPlannerNode::onLaneletMap, this, _1),
-    createSubscriptionOptions(this));
+    subscription_no_exec_options);
   sub_traffic_signals_ =
     this->create_subscription<autoware_perception_msgs::msg::TrafficSignalArray>(
       "~/input/traffic_signals", 1,
       std::bind(&BehaviorVelocityPlannerNode::onTrafficSignals, this, _1),
-      createSubscriptionOptions(this));
+      subscription_no_exec_options);
   sub_external_velocity_limit_ = this->create_subscription<VelocityLimit>(
     "~/input/external_velocity_limit_mps", rclcpp::QoS{1}.transient_local(),
-    std::bind(&BehaviorVelocityPlannerNode::onExternalVelocityLimit, this, _1));
+    std::bind(&BehaviorVelocityPlannerNode::onExternalVelocityLimit, this, _1),
+    subscription_no_exec_options);
   sub_virtual_traffic_light_states_ =
     this->create_subscription<tier4_v2x_msgs::msg::VirtualTrafficLightStateArray>(
       "~/input/virtual_traffic_light_states", 1,
       std::bind(&BehaviorVelocityPlannerNode::onVirtualTrafficLightStates, this, _1),
-      createSubscriptionOptions(this));
+      subscription_no_exec_options);
   sub_occupancy_grid_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
     "~/input/occupancy_grid", 1, std::bind(&BehaviorVelocityPlannerNode::onOccupancyGrid, this, _1),
-    createSubscriptionOptions(this));
+    subscription_no_exec_options);
 
   srv_load_plugin_ = create_service<LoadPlugin>(
     "~/service/load_plugin", std::bind(&BehaviorVelocityPlannerNode::onLoadPlugin, this, _1, _2));
@@ -222,82 +235,35 @@ bool BehaviorVelocityPlannerNode::isDataReady(
 void BehaviorVelocityPlannerNode::onOccupancyGrid(
   const nav_msgs::msg::OccupancyGrid::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  planner_data_.occupancy_grid = msg;
+  (void)msg;
+  assert(false);
 }
 
 void BehaviorVelocityPlannerNode::onPredictedObjects(
   const autoware_auto_perception_msgs::msg::PredictedObjects::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  planner_data_.predicted_objects = msg;
+  (void)msg;
+  assert(false);
 }
 
 void BehaviorVelocityPlannerNode::onNoGroundPointCloud(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
 {
-  geometry_msgs::msg::TransformStamped transform;
-  try {
-    transform = tf_buffer_.lookupTransform(
-      "map", msg->header.frame_id, msg->header.stamp, rclcpp::Duration::from_seconds(0.1));
-  } catch (tf2::TransformException & e) {
-    RCLCPP_WARN(get_logger(), "no transform found for no_ground_pointcloud: %s", e.what());
-    return;
-  }
-
-  pcl::PointCloud<pcl::PointXYZ> pc;
-  pcl::fromROSMsg(*msg, pc);
-
-  Eigen::Affine3f affine = tf2::transformToEigen(transform.transform).cast<float>();
-  pcl::PointCloud<pcl::PointXYZ>::Ptr pc_transformed(new pcl::PointCloud<pcl::PointXYZ>);
-  if (!pc.empty()) {
-    tier4_autoware_utils::transformPointCloud(pc, *pc_transformed, affine);
-  }
-
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    planner_data_.no_ground_pointcloud = pc_transformed;
-  }
+  (void)msg;
+  assert(false);
 }
 
 void BehaviorVelocityPlannerNode::onOdometry(const nav_msgs::msg::Odometry::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  auto current_odometry = std::make_shared<geometry_msgs::msg::PoseStamped>();
-  current_odometry->header = msg->header;
-  current_odometry->pose = msg->pose.pose;
-  planner_data_.current_odometry = current_odometry;
-
-  auto current_velocity = std::make_shared<geometry_msgs::msg::TwistStamped>();
-  current_velocity->header = msg->header;
-  current_velocity->twist = msg->twist.twist;
-  planner_data_.current_velocity = current_velocity;
-
-  // Add velocity to buffer
-  planner_data_.velocity_buffer.push_front(*current_velocity);
-  const rclcpp::Time now = this->now();
-  while (!planner_data_.velocity_buffer.empty()) {
-    // Check oldest data time
-    const auto & s = planner_data_.velocity_buffer.back().header.stamp;
-    const auto time_diff =
-      now >= s ? now - s : rclcpp::Duration(0, 0);  // Note: negative time throws an exception.
-
-    // Finish when oldest data is newer than threshold
-    if (time_diff.seconds() <= PlannerData::velocity_buffer_time_sec) {
-      break;
-    }
-
-    // Remove old data
-    planner_data_.velocity_buffer.pop_back();
-  }
+  (void)msg;
+  assert(false);
 }
 
 void BehaviorVelocityPlannerNode::onAcceleration(
   const geometry_msgs::msg::AccelWithCovarianceStamped::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  planner_data_.current_acceleration = msg;
+  (void)msg;
+  assert(false);
 }
 
 void BehaviorVelocityPlannerNode::onParam()
@@ -312,64 +278,164 @@ void BehaviorVelocityPlannerNode::onParam()
 void BehaviorVelocityPlannerNode::onLaneletMap(
   const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  map_ptr_ = msg;
-  has_received_map_ = true;
+  (void)msg;
+  assert(false);
 }
 
 void BehaviorVelocityPlannerNode::onTrafficSignals(
   const autoware_perception_msgs::msg::TrafficSignalArray::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  // clear previous observation
-  planner_data_.traffic_light_id_map_raw_.clear();
-  const auto traffic_light_id_map_last_observed_old =
-    planner_data_.traffic_light_id_map_last_observed_;
-  planner_data_.traffic_light_id_map_last_observed_.clear();
-  for (const auto & signal : msg->signals) {
-    TrafficSignalStamped traffic_signal;
-    traffic_signal.stamp = msg->stamp;
-    traffic_signal.signal = signal;
-    planner_data_.traffic_light_id_map_raw_[signal.traffic_signal_id] = traffic_signal;
-    const bool is_unknown_observation =
-      std::any_of(signal.elements.begin(), signal.elements.end(), [](const auto & element) {
-        return element.color == autoware_perception_msgs::msg::TrafficSignalElement::UNKNOWN;
-      });
-    // if the observation is UNKNOWN and past observation is available, only update the timestamp
-    // and keep the body of the info
-    const auto old_data = traffic_light_id_map_last_observed_old.find(signal.traffic_signal_id);
-    if (is_unknown_observation && old_data != traffic_light_id_map_last_observed_old.end()) {
-      // copy last observation
-      planner_data_.traffic_light_id_map_last_observed_[signal.traffic_signal_id] =
-        old_data->second;
-      // update timestamp
-      planner_data_.traffic_light_id_map_last_observed_[signal.traffic_signal_id].stamp =
-        msg->stamp;
-    } else {
-      planner_data_.traffic_light_id_map_last_observed_[signal.traffic_signal_id] = traffic_signal;
-    }
-  }
+  (void)msg;
+  assert(false);
 }
 
 void BehaviorVelocityPlannerNode::onExternalVelocityLimit(const VelocityLimit::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  planner_data_.external_velocity_limit = *msg;
+  (void)msg;
+  assert(false);
 }
 
 void BehaviorVelocityPlannerNode::onVirtualTrafficLightStates(
   const tier4_v2x_msgs::msg::VirtualTrafficLightStateArray::ConstSharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  planner_data_.virtual_traffic_light_states = msg;
+  (void)msg;
+  assert(false);
+}
+
+void BehaviorVelocityPlannerNode::take()
+{
+  autoware_auto_perception_msgs::msg::PredictedObjects::SharedPtr predicted_objects_msg = std::make_shared<autoware_auto_perception_msgs::msg::PredictedObjects>();
+  sensor_msgs::msg::PointCloud2::SharedPtr pointcloud_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
+  nav_msgs::msg::Odometry::SharedPtr odometry_msg = std::make_shared<nav_msgs::msg::Odometry>();
+  geometry_msgs::msg::AccelWithCovarianceStamped::SharedPtr acceleration_msg = std::make_shared<geometry_msgs::msg::AccelWithCovarianceStamped>();
+  autoware_auto_mapping_msgs::msg::HADMapBin::SharedPtr map_msg = std::make_shared<autoware_auto_mapping_msgs::msg::HADMapBin>();
+  autoware_perception_msgs::msg::TrafficSignalArray::SharedPtr traffic_signal_msg = std::make_shared<autoware_perception_msgs::msg::TrafficSignalArray>();
+  tier4_v2x_msgs::msg::VirtualTrafficLightStateArray::SharedPtr virtual_traffic_light_states_msg = std::make_shared<tier4_v2x_msgs::msg::VirtualTrafficLightStateArray>();
+  VelocityLimit::SharedPtr external_velocity_limit_msg = std::make_shared<VelocityLimit>();
+  nav_msgs::msg::OccupancyGrid::SharedPtr occupancy_grid_msg = std::make_shared<nav_msgs::msg::OccupancyGrid>();
+  rclcpp::MessageInfo msg_info;
+
+  /* PredictedObjects */
+  if (sub_predicted_objects_->take(*predicted_objects_msg, msg_info))
+    planner_data_.predicted_objects = predicted_objects_msg;
+
+  /* NoGrouPointCloud */
+  if (sub_no_ground_pointcloud_->take(*pointcloud_msg, msg_info)) {
+    bool skip_process = false;
+    geometry_msgs::msg::TransformStamped transform;
+    try {
+      transform = tf_buffer_.lookupTransform(
+        "map", pointcloud_msg->header.frame_id, pointcloud_msg->header.stamp, rclcpp::Duration::from_seconds(0.1));
+    } catch (tf2::TransformException & e) {
+      RCLCPP_WARN(get_logger(), "no transform found for no_ground_pointcloud: %s", e.what());
+      skip_process = true;
+    }
+
+    if (!skip_process) {
+      pcl::PointCloud<pcl::PointXYZ> pc;
+      pcl::fromROSMsg(*pointcloud_msg, pc);
+
+      Eigen::Affine3f affine = tf2::transformToEigen(transform.transform).cast<float>();
+      pcl::PointCloud<pcl::PointXYZ>::Ptr pc_transformed(new pcl::PointCloud<pcl::PointXYZ>);
+      if (!pc.empty()) {
+        tier4_autoware_utils::transformPointCloud(pc, *pc_transformed, affine);
+      }
+
+      planner_data_.no_ground_pointcloud = pc_transformed;
+    }
+  }
+
+  /* Odometry */
+  while (sub_vehicle_odometry_->take(*odometry_msg, msg_info)) {
+    auto current_odometry = std::make_shared<geometry_msgs::msg::PoseStamped>();
+    current_odometry->header = odometry_msg->header;
+    current_odometry->pose = odometry_msg->pose.pose;
+    planner_data_.current_odometry = current_odometry;
+
+    auto current_velocity = std::make_shared<geometry_msgs::msg::TwistStamped>();
+    current_velocity->header = odometry_msg->header;
+    current_velocity->twist = odometry_msg->twist.twist;
+    planner_data_.current_velocity = current_velocity;
+
+    // Add velocity to buffer
+    planner_data_.velocity_buffer.push_front(*current_velocity);
+    const rclcpp::Time now = this->now();
+    while (!planner_data_.velocity_buffer.empty()) {
+      // Check oldest data time
+      const auto & s = planner_data_.velocity_buffer.back().header.stamp;
+      const auto time_diff =
+        now >= s ? now - s : rclcpp::Duration(0, 0);  // Note: negative time throws an exception.
+
+      // Finish when oldest data is newer than threshold
+      if (time_diff.seconds() <= PlannerData::velocity_buffer_time_sec) {
+        break;
+      }
+
+      // Remove old data
+      planner_data_.velocity_buffer.pop_back();
+    }
+  }
+
+  /* Acceleration */
+  if (sub_acceleration_->take(*acceleration_msg, msg_info))
+    planner_data_.current_acceleration = acceleration_msg;
+
+  if (sub_lanelet_map_->take(*map_msg, msg_info)) {
+    map_ptr_ = map_msg;
+    has_received_map_ = true;
+  }
+
+  /* TrafficSignals */
+  if (sub_traffic_signals_->take(*traffic_signal_msg, msg_info)) {
+    // clear previous observation
+    planner_data_.traffic_light_id_map_raw_.clear();
+    const auto traffic_light_id_map_last_observed_old =
+      planner_data_.traffic_light_id_map_last_observed_;
+    planner_data_.traffic_light_id_map_last_observed_.clear();
+    for (const auto & signal : traffic_signal_msg->signals) {
+      TrafficSignalStamped traffic_signal;
+      traffic_signal.stamp = traffic_signal_msg->stamp;
+      traffic_signal.signal = signal;
+      planner_data_.traffic_light_id_map_raw_[signal.traffic_signal_id] = traffic_signal;
+      const bool is_unknown_observation =
+        std::any_of(signal.elements.begin(), signal.elements.end(), [](const auto & element) {
+          return element.color == autoware_perception_msgs::msg::TrafficSignalElement::UNKNOWN;
+        });
+      // if the observation is UNKNOWN and past observation is available, only update the timestamp
+      // and keep the body of the info
+      const auto old_data = traffic_light_id_map_last_observed_old.find(signal.traffic_signal_id);
+      if (is_unknown_observation && old_data != traffic_light_id_map_last_observed_old.end()) {
+        // copy last observation
+        planner_data_.traffic_light_id_map_last_observed_[signal.traffic_signal_id] =
+          old_data->second;
+        // update timestamp
+        planner_data_.traffic_light_id_map_last_observed_[signal.traffic_signal_id].stamp =
+          traffic_signal_msg->stamp;
+      } else {
+        planner_data_.traffic_light_id_map_last_observed_[signal.traffic_signal_id] = traffic_signal;
+      }
+    }
+  }
+
+  /* VirtualTrafficLightStates */
+  if (sub_virtual_traffic_light_states_->take(*virtual_traffic_light_states_msg, msg_info))
+    planner_data_.virtual_traffic_light_states = virtual_traffic_light_states_msg;
+
+  /* OccupancyGrid */
+  if (sub_occupancy_grid_->take(*occupancy_grid_msg, msg_info))
+    planner_data_.occupancy_grid = occupancy_grid_msg;
+
+  /* ExternalVelocityLimit */
+  if (sub_external_velocity_limit_->take(*external_velocity_limit_msg, msg_info))
+    planner_data_.external_velocity_limit = *external_velocity_limit_msg;
 }
 
 void BehaviorVelocityPlannerNode::onTrigger(
   const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg)
 {
   std::unique_lock<std::mutex> lk(mutex_);
+
+  take();
 
   if (!isDataReady(planner_data_, *get_clock())) {
     return;
