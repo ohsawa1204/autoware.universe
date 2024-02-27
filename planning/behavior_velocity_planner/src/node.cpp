@@ -112,7 +112,7 @@ BehaviorVelocityPlannerNode::BehaviorVelocityPlannerNode(const rclcpp::NodeOptio
     "~/input/accel", 1, std::bind(&BehaviorVelocityPlannerNode::onAcceleration, this, _1),
     subscription_no_exec_options);
   sub_lanelet_map_ = this->create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>(
-    "~/input/vector_map", rclcpp::QoS(10).transient_local(),
+    "~/input/vector_map", rclcpp::QoS(1).transient_local(),
     std::bind(&BehaviorVelocityPlannerNode::onLaneletMap, this, _1),
     subscription_no_exec_options);
   sub_traffic_signals_ =
@@ -320,7 +320,7 @@ void BehaviorVelocityPlannerNode::take()
     planner_data_.predicted_objects = predicted_objects_msg;
 
   /* NoGrouPointCloud */
-  if (sub_no_ground_pointcloud_->take(*pointcloud_msg, msg_info)) {
+  while (sub_no_ground_pointcloud_->take(*pointcloud_msg, msg_info)) {
     bool skip_process = false;
     geometry_msgs::msg::TransformStamped transform;
     try {
@@ -380,6 +380,7 @@ void BehaviorVelocityPlannerNode::take()
   if (sub_acceleration_->take(*acceleration_msg, msg_info))
     planner_data_.current_acceleration = acceleration_msg;
 
+  /* LaneletMap */
   if (sub_lanelet_map_->take(*map_msg, msg_info)) {
     map_ptr_ = map_msg;
     has_received_map_ = true;
