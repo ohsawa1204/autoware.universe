@@ -96,24 +96,30 @@ AEB::AEB(const rclcpp::NodeOptions & node_options)
   vehicle_info_(vehicle_info_util::VehicleInfoUtil(*this).getVehicleInfo()),
   collision_data_keeper_(this->get_clock())
 {
+  // Define non executed callback group
+  auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
   // Subscribers
   sub_point_cloud_ = this->create_subscription<PointCloud2>(
-    "~/input/pointcloud", rclcpp::SensorDataQoS(),
-    std::bind(&AEB::onPointCloud, this, std::placeholders::_1));
+    "~/input/pointcloud", rclcpp::SensorDataQoS().keep_last(1),
+    std::bind(&AEB::onPointCloud, this, std::placeholders::_1), noexec_subscription_options);
 
+  // Receive input data
   sub_velocity_ = this->create_subscription<VelocityReport>(
-    "~/input/velocity", rclcpp::QoS{1}, std::bind(&AEB::onVelocity, this, std::placeholders::_1));
+    "~/input/velocity", rclcpp::QoS{1}, std::bind(&AEB::onVelocity, this, std::placeholders::_1), noexec_subscription_options);
 
   sub_imu_ = this->create_subscription<Imu>(
-    "~/input/imu", rclcpp::QoS{1}, std::bind(&AEB::onImu, this, std::placeholders::_1));
+    "~/input/imu", rclcpp::QoS{1}, std::bind(&AEB::onImu, this, std::placeholders::_1), noexec_subscription_options);
 
   sub_predicted_traj_ = this->create_subscription<Trajectory>(
     "~/input/predicted_trajectory", rclcpp::QoS{1},
-    std::bind(&AEB::onPredictedTrajectory, this, std::placeholders::_1));
+    std::bind(&AEB::onPredictedTrajectory, this, std::placeholders::_1), noexec_subscription_options);
 
   sub_autoware_state_ = this->create_subscription<AutowareState>(
     "/autoware/state", rclcpp::QoS{1},
-    std::bind(&AEB::onAutowareState, this, std::placeholders::_1));
+    std::bind(&AEB::onAutowareState, this, std::placeholders::_1), noexec_subscription_options);
 
   // Publisher
   pub_obstacle_pointcloud_ =
@@ -121,6 +127,7 @@ AEB::AEB(const rclcpp::NodeOptions & node_options)
   debug_ego_path_publisher_ = this->create_publisher<MarkerArray>("~/debug/markers", 1);
 
   // Diagnostics
+  // Main Processing
   updater_.setHardwareID("autonomous_emergency_braking");
   updater_.add("aeb_emergency_stop", this, &AEB::onCheckCollision);
 
@@ -151,6 +158,43 @@ AEB::AEB(const rclcpp::NodeOptions & node_options)
   timer_ = rclcpp::create_timer(this, get_clock(), period_ns, std::bind(&AEB::onTimer, this));
 }
 
+void AEB::take_data()
+{
+  // sensor_msgs::msg::PointCloud2::SharedPtr pointcloud_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
+  VelocityReport::SharedPtr velocity_msg = std::make_shared<VelocityReport>();
+  Imu::SharedPtr imu_msg = std::make_shared<Imu>();
+  Trajectory::SharedPtr trajectory_msg = std::make_shared<Trajectory>();
+  AutowareState::SharedPtr autoware_state_msg = std::make_shared<AutowareState>();
+  rclcpp::MessageInfo message_info;
+
+  /* pointcloud*/
+  std::shared_ptr<void> pointcloud_type_erased_msg = sub_point_cloud_->create_message();
+  if (sub_point_cloud_->take_type_erased(pointcloud_type_erased_msg.get(), message_info)) {
+    sub_point_cloud_->handle_message(pointcloud_type_erased_msg, message_info);
+  }
+  /* velocity */
+  if (sub_velocity_->take(*velocity_msg, message_info)) {
+    current_velocity_ptr_ = velocity_msg;
+  }
+
+  /* imu */
+  std::shared_ptr<void> imu_type_erased_msg = sub_imu_->create_message();
+  if (sub_imu_->take_type_erased(imu_type_erased_msg.get(), message_info)) {
+    sub_imu_->handle_message(imu_type_erased_msg, message_info);
+  }
+
+  /* predicted trajectory */
+  if (sub_predicted_traj_->take(*trajectory_msg, message_info)) {
+    predicted_traj_ptr_ = trajectory_msg;
+  }
+
+  /* Autoware state */
+  if (sub_autoware_state_->take(*autoware_state_msg, message_info)) {
+    autoware_state_ = autoware_state_msg;
+  }
+
+}
+
 void AEB::onTimer()
 {
   updater_.force_update();
@@ -158,11 +202,14 @@ void AEB::onTimer()
 
 void AEB::onVelocity(const VelocityReport::ConstSharedPtr input_msg)
 {
-  current_velocity_ptr_ = input_msg;
+  assert(false);
 }
 
 void AEB::onImu(const Imu::ConstSharedPtr input_msg)
 {
+
+  assert(false);
+
   // transform imu
   geometry_msgs::msg::TransformStamped transform_stamped{};
   try {
@@ -183,11 +230,13 @@ void AEB::onImu(const Imu::ConstSharedPtr input_msg)
 void AEB::onPredictedTrajectory(
   const autoware_auto_planning_msgs::msg::Trajectory::ConstSharedPtr input_msg)
 {
+  assert(false);
   predicted_traj_ptr_ = input_msg;
 }
 
 void AEB::onAutowareState(const AutowareState::ConstSharedPtr input_msg)
 {
+  assert(false);
   autoware_state_ = input_msg;
 }
 
@@ -267,6 +316,7 @@ bool AEB::isDataReady()
 
 void AEB::onCheckCollision(DiagnosticStatusWrapper & stat)
 {
+  
   MarkerArray debug_markers;
   checkCollision(debug_markers);
 
@@ -290,6 +340,9 @@ void AEB::onCheckCollision(DiagnosticStatusWrapper & stat)
 
 bool AEB::checkCollision(MarkerArray & debug_markers)
 {
+  // step0. take data
+  take_data();
+
   // step1. check data
   if (!isDataReady()) {
     return false;

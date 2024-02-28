@@ -125,6 +125,9 @@ public:
   // timer
   rclcpp::TimerBase::SharedPtr timer_;
 
+  // take data from subscriptions.
+  void take_data();
+
   // callback
   void onPointCloud(const PointCloud2::ConstSharedPtr input_msg);
   void onVelocity(const VelocityReport::ConstSharedPtr input_msg);
