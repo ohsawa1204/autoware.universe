@@ -119,6 +119,10 @@ private:
   rclcpp::Subscription<AccelWithCovarianceStamped>::SharedPtr acc_sub_;  // for filter
   rclcpp::Subscription<SteeringReport>::SharedPtr steer_sub_;            // for filter
 
+  // function to take data from subscriptions
+  void updateSystemState();
+  void updateVehicleStatus();
+
   void onGateMode(GateMode::ConstSharedPtr msg);
   void onExternalEmergencyStopHeartbeat(Heartbeat::ConstSharedPtr msg);
   void onMrmState(MrmState::ConstSharedPtr msg);
@@ -211,6 +215,9 @@ private:
   void publishControlCommands(const Commands & input_msg);
   void publishEmergencyStopControlCommands();
   void publishStatus();
+
+  // Wait set
+  rclcpp::WaitSet wait_set_;
 
   // Diagnostics Updater
   diagnostic_updater::Updater updater_;
