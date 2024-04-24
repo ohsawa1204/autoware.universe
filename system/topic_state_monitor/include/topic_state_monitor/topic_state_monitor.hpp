@@ -48,7 +48,7 @@ public:
   rclcpp::Time getLastMessageTime() const { return last_message_time_; }
   double getTopicRate() const { return topic_rate_; }
 
-  void update();
+  void update(rclcpp::Time & source_timestamp);
   TopicStatus getTopicStatus() const;
 
 private:

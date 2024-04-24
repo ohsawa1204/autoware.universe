@@ -32,14 +32,23 @@ ShiftDecider::ShiftDecider(const rclcpp::NodeOptions & node_options)
 
   park_on_goal_ = declare_parameter<bool>("park_on_goal");
 
+
+
   pub_shift_cmd_ =
     create_publisher<autoware_auto_vehicle_msgs::msg::GearCommand>("output/gear_cmd", durable_qos);
+
+  // subscriptions
+  auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group; 
+
+
   sub_control_cmd_ = create_subscription<autoware_auto_control_msgs::msg::AckermannControlCommand>(
-    "input/control_cmd", queue_size, std::bind(&ShiftDecider::onControlCmd, this, _1));
+    "input/control_cmd", queue_size, std::bind(&ShiftDecider::onControlCmd, this, _1), noexec_subscription_options);
   sub_autoware_state_ = create_subscription<autoware_auto_system_msgs::msg::AutowareState>(
-    "input/state", queue_size, std::bind(&ShiftDecider::onAutowareState, this, _1));
+    "input/state", queue_size, std::bind(&ShiftDecider::onAutowareState, this, _1), noexec_subscription_options);
   sub_current_gear_ = create_subscription<autoware_auto_vehicle_msgs::msg::GearReport>(
-    "input/current_gear", queue_size, std::bind(&ShiftDecider::onCurrentGear, this, _1));
+    "input/current_gear", queue_size, std::bind(&ShiftDecider::onCurrentGear, this, _1), noexec_subscription_options);
 
   initTimer(0.1);
 }
@@ -47,21 +56,48 @@ ShiftDecider::ShiftDecider(const rclcpp::NodeOptions & node_options)
 void ShiftDecider::onControlCmd(
   autoware_auto_control_msgs::msg::AckermannControlCommand::SharedPtr msg)
 {
+  assert(false);
   control_cmd_ = msg;
 }
 
 void ShiftDecider::onAutowareState(autoware_auto_system_msgs::msg::AutowareState::SharedPtr msg)
 {
+  assert(false);
   autoware_state_ = msg;
 }
 
 void ShiftDecider::onCurrentGear(autoware_auto_vehicle_msgs::msg::GearReport::SharedPtr msg)
 {
+  assert(false);
   current_gear_ptr_ = msg;
+}
+
+void ShiftDecider::takeData() {
+  autoware_auto_control_msgs::msg::AckermannControlCommand::SharedPtr control_cmd_msg = std::make_shared<autoware_auto_control_msgs::msg::AckermannControlCommand>();
+  rclcpp::MessageInfo message_info;
+
+
+  if (sub_control_cmd_->take(*control_cmd_msg, message_info)) {
+    control_cmd_ = control_cmd_msg;
+  }
+
+  autoware_auto_system_msgs::msg::AutowareState::SharedPtr autoware_state_msg = std::make_shared<autoware_auto_system_msgs::msg::AutowareState>();
+
+  if (sub_autoware_state_->take(*autoware_state_msg, message_info)) {
+    autoware_state_ = autoware_state_msg;
+  }
+
+  autoware_auto_vehicle_msgs::msg::GearReport::SharedPtr current_gear_msg = std::make_shared<autoware_auto_vehicle_msgs::msg::GearReport>();
+  if (sub_current_gear_->take(*current_gear_msg, message_info)) {
+    current_gear_ptr_ = current_gear_msg;
+  }  
+
 }
 
 void ShiftDecider::onTimer()
 {
+  takeData();
+
   if (!autoware_state_ || !control_cmd_ || !current_gear_ptr_) {
     return;
   }

@@ -20,10 +20,10 @@ TopicStateMonitor::TopicStateMonitor(rclcpp::Node & node) : clock_(node.get_cloc
 {
 }
 
-void TopicStateMonitor::update()
+void TopicStateMonitor::update(rclcpp::Time & source_timestamp)
 {
   // Add data
-  last_message_time_ = clock_->now();
+  last_message_time_ = source_timestamp;
   time_buffer_.push_back(last_message_time_);
 
   // Remove old data
@@ -52,6 +52,7 @@ TopicStatus TopicStateMonitor::getTopicStatus() const
   return TopicStatus::Ok;
 }
 
+#include <iostream>
 double TopicStateMonitor::calcTopicRate() const
 {
   // Output max_rate when topic rate can't be calculated.
@@ -59,7 +60,6 @@ double TopicStateMonitor::calcTopicRate() const
   if (time_buffer_.size() < 2) {
     return TopicStateMonitor::max_rate;
   }
-
   const auto time_diff = (time_buffer_.back() - time_buffer_.front()).seconds();
   const auto num_intervals = time_buffer_.size() - 1;
 

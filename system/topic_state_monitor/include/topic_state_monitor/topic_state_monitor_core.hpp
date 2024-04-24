@@ -41,6 +41,7 @@ struct NodeParam
   bool transient_local;
   bool best_effort;
   bool is_transform;
+  int queue_size;
 };
 
 class TopicStateMonitorNode : public rclcpp::Node

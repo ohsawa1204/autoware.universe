@@ -139,6 +139,8 @@ private:
     static constexpr const char * combined = "combined";
   };
 
+  void takeData();
+
   /// \brief wait for lanelet2 map to load and build routing graph
   void initLaneletMap();
 

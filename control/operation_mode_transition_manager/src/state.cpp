@@ -35,19 +35,23 @@ AutonomousMode::AutonomousMode(rclcpp::Node * node)
 {
   vehicle_info_ = vehicle_info_util::VehicleInfoUtil(*node).getVehicleInfo();
 
+  auto noexec_callback_group = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
   sub_control_cmd_ = node->create_subscription<AckermannControlCommand>(
     "control_cmd", 1,
-    [this](const AckermannControlCommand::SharedPtr msg) { control_cmd_ = *msg; });
+    [this](const AckermannControlCommand::SharedPtr msg) { control_cmd_ = *msg; }, noexec_subscription_options);
   sub_trajectory_follower_control_cmd_ = node->create_subscription<AckermannControlCommand>(
     "trajectory_follower_control_cmd", 1, [this](const AckermannControlCommand::SharedPtr msg) {
       trajectory_follower_control_cmd_ = *msg;
-    });
+    }, noexec_subscription_options);
 
   sub_kinematics_ = node->create_subscription<Odometry>(
-    "kinematics", 1, [this](const Odometry::SharedPtr msg) { kinematics_ = *msg; });
+    "kinematics", 1, [this](const Odometry::SharedPtr msg) { kinematics_ = *msg; }, noexec_subscription_options);
 
   sub_trajectory_ = node->create_subscription<Trajectory>(
-    "trajectory", 1, [this](const Trajectory::SharedPtr msg) { trajectory_ = *msg; });
+    "trajectory", 1, [this](const Trajectory::SharedPtr msg) { trajectory_ = *msg; }, noexec_subscription_options);
 
   check_engage_condition_ = node->declare_parameter<bool>("check_engage_condition");
   enable_engage_on_driving_ = node->declare_parameter<bool>("enable_engage_on_driving");
@@ -90,6 +94,31 @@ void AutonomousMode::update(bool transition)
   if (!transition) {
     stable_start_time_.reset();
   }
+}
+
+void AutonomousMode::takeData() {
+  AckermannControlCommand control_cmd_msg;
+  rclcpp::MessageInfo message_info;
+
+  if (sub_control_cmd_->take(control_cmd_msg, message_info)) {
+    control_cmd_ = control_cmd_msg;
+  }
+
+  AckermannControlCommand trajectory_follower_control_cmd_msg;
+  if (sub_trajectory_follower_control_cmd_->take(trajectory_follower_control_cmd_msg, message_info)) {
+    trajectory_follower_control_cmd_ = trajectory_follower_control_cmd_msg;
+  }
+
+  Odometry kinematics_msg;
+  if (sub_kinematics_->take(kinematics_msg, message_info)) {
+    kinematics_ = kinematics_msg;
+  }
+
+  Trajectory trajectory_msg;
+  if (sub_trajectory_->take(trajectory_msg, message_info)) {
+    trajectory_ = trajectory_msg;
+  }
+
 }
 
 bool AutonomousMode::isModeChangeCompleted()
@@ -218,6 +247,8 @@ bool AutonomousMode::isModeChangeAvailable()
     setAllOk(debug_info_);
     return true;
   }
+
+  takeData();
 
   const auto current_speed = kinematics_.twist.twist.linear.x;
   const auto target_control_speed = control_cmd_.longitudinal.speed;

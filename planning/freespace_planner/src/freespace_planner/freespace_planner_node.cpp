@@ -252,21 +252,27 @@ FreespacePlannerNode::FreespacePlannerNode(const rclcpp::NodeOptions & node_opti
 
   // Subscribers
   {
+    auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+    auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+    noexec_subscription_options.callback_group = noexec_callback_group;
+
+    // route_sub_ allows callback to be executed in another thread.
     route_sub_ = create_subscription<LaneletRoute>(
       "~/input/route", rclcpp::QoS{1}.transient_local(),
       std::bind(&FreespacePlannerNode::onRoute, this, _1));
     occupancy_grid_sub_ = create_subscription<OccupancyGrid>(
-      "~/input/occupancy_grid", 1, std::bind(&FreespacePlannerNode::onOccupancyGrid, this, _1));
+      "~/input/occupancy_grid", 1, std::bind(&FreespacePlannerNode::onOccupancyGrid, this, _1), noexec_subscription_options);
     scenario_sub_ = create_subscription<Scenario>(
-      "~/input/scenario", 1, std::bind(&FreespacePlannerNode::onScenario, this, _1));
+      "~/input/scenario", 1, std::bind(&FreespacePlannerNode::onScenario, this, _1), noexec_subscription_options);
     odom_sub_ = create_subscription<Odometry>(
-      "~/input/odometry", 100, std::bind(&FreespacePlannerNode::onOdometry, this, _1));
+      "~/input/odometry", 100, std::bind(&FreespacePlannerNode::onOdometry, this, _1), noexec_subscription_options);
   }
 
   // Publishers
   {
     rclcpp::QoS qos{1};
     qos.transient_local();  // latch
+
     trajectory_pub_ = create_publisher<Trajectory>("~/output/trajectory", qos);
     debug_pose_array_pub_ = create_publisher<PoseArray>("~/debug/pose_array", qos);
     debug_partial_pose_array_pub_ = create_publisher<PoseArray>("~/debug/partial_pose_array", qos);
@@ -322,6 +328,26 @@ void FreespacePlannerNode::onRoute(const LaneletRoute::ConstSharedPtr msg)
   goal_pose_.pose = msg->goal_pose;
 
   reset();
+}
+
+void FreespacePlannerNode::takeData() {
+  rclcpp::MessageInfo message_info;
+
+  OccupancyGrid::SharedPtr occupancy_grid_msg = std::make_shared<OccupancyGrid>();
+
+  if (occupancy_grid_sub_->take(*occupancy_grid_msg, message_info)) {
+    occupancy_grid_ = occupancy_grid_msg;
+  }
+
+  Scenario::SharedPtr scenario_msg = std::make_shared<Scenario>();
+  if (scenario_sub_->take(*scenario_msg, message_info)) {
+    scenario_ = scenario_msg;
+  }
+
+  std::shared_ptr<void> odom_type_erased_msg = odom_sub_->create_message();
+  while (odom_sub_->take_type_erased(odom_type_erased_msg.get(), message_info)) {
+    odom_sub_->handle_message(odom_type_erased_msg, message_info);
+  }
 }
 
 void FreespacePlannerNode::onOccupancyGrid(const OccupancyGrid::ConstSharedPtr msg)
@@ -419,6 +445,7 @@ void FreespacePlannerNode::updateTargetIndex()
 
 void FreespacePlannerNode::onTimer()
 {
+  takeData();
   // Check all inputs are ready
   if (!occupancy_grid_ || !route_ || !scenario_ || !odom_) {
     return;

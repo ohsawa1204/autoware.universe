@@ -54,6 +54,8 @@ private:
   rclcpp::Client<ControlModeCommand>::SharedPtr cli_control_mode_;
   rclcpp::Publisher<ModeChangeBase::DebugInfo>::SharedPtr pub_debug_info_;
   rclcpp::TimerBase::SharedPtr timer_;
+  void updateControlModeReport();
+  void updateGateOperationMode();
   void onTimer();
   void publishData();
   void changeControlMode(ControlModeCommandType mode);

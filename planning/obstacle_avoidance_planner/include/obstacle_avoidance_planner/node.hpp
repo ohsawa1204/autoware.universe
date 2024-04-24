@@ -103,6 +103,9 @@ protected:  // for the static_centerline_optimizer package
     const std::vector<rclcpp::Parameter> & parameters);
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;
 
+  // take subscription messages
+  void take();
+
   // subscriber callback function
   void onPath(const Path::ConstSharedPtr path_ptr);
 

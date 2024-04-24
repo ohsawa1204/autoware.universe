@@ -168,9 +168,15 @@ LaneDepartureCheckerNode::LaneDepartureCheckerNode(const rclcpp::NodeOptions & o
   lane_departure_checker_ = std::make_unique<LaneDepartureChecker>();
   lane_departure_checker_->setParam(param_, vehicle_info);
 
+
+  // callback group
+  auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;  
+
   // Subscriber
   sub_odom_ = this->create_subscription<nav_msgs::msg::Odometry>(
-    "~/input/odometry", 1, std::bind(&LaneDepartureCheckerNode::onOdometry, this, _1));
+    "~/input/odometry", 1, std::bind(&LaneDepartureCheckerNode::onOdometry, this, _1), noexec_subscription_options);
   sub_lanelet_map_bin_ = this->create_subscription<HADMapBin>(
     "~/input/lanelet_map_bin", rclcpp::QoS{1}.transient_local(),
     std::bind(&LaneDepartureCheckerNode::onLaneletMapBin, this, _1));
@@ -179,10 +185,10 @@ LaneDepartureCheckerNode::LaneDepartureCheckerNode(const rclcpp::NodeOptions & o
     std::bind(&LaneDepartureCheckerNode::onRoute, this, _1));
   sub_reference_trajectory_ = this->create_subscription<Trajectory>(
     "~/input/reference_trajectory", 1,
-    std::bind(&LaneDepartureCheckerNode::onReferenceTrajectory, this, _1));
+    std::bind(&LaneDepartureCheckerNode::onReferenceTrajectory, this, _1), noexec_subscription_options);
   sub_predicted_trajectory_ = this->create_subscription<Trajectory>(
     "~/input/predicted_trajectory", 1,
-    std::bind(&LaneDepartureCheckerNode::onPredictedTrajectory, this, _1));
+    std::bind(&LaneDepartureCheckerNode::onPredictedTrajectory, this, _1), noexec_subscription_options);
 
   // Publisher
   // Nothing
@@ -202,6 +208,7 @@ LaneDepartureCheckerNode::LaneDepartureCheckerNode(const rclcpp::NodeOptions & o
 
 void LaneDepartureCheckerNode::onOdometry(const nav_msgs::msg::Odometry::ConstSharedPtr msg)
 {
+  assert(false);
   current_odom_ = msg;
 }
 
@@ -222,12 +229,34 @@ void LaneDepartureCheckerNode::onRoute(const LaneletRoute::ConstSharedPtr msg)
 
 void LaneDepartureCheckerNode::onReferenceTrajectory(const Trajectory::ConstSharedPtr msg)
 {
+  assert(false);
   reference_trajectory_ = msg;
 }
 
 void LaneDepartureCheckerNode::onPredictedTrajectory(const Trajectory::ConstSharedPtr msg)
 {
+  assert(false);
   predicted_trajectory_ = msg;
+}
+
+void LaneDepartureCheckerNode::takeData()
+{
+  rclcpp::MessageInfo message_info;
+
+  nav_msgs::msg::Odometry::SharedPtr odom_msg = std::make_shared<nav_msgs::msg::Odometry>();
+  if (sub_odom_->take(*odom_msg, message_info)) {
+    current_odom_ = odom_msg;
+  }
+
+  Trajectory::SharedPtr reference_trajectory_msg = std::make_shared<Trajectory>();
+  if (sub_reference_trajectory_->take(*reference_trajectory_msg, message_info)) {
+    reference_trajectory_ = reference_trajectory_msg;
+  }
+
+  Trajectory::SharedPtr predicted_trajectory_msg = std::make_shared<Trajectory>();
+  if (sub_predicted_trajectory_->take(*predicted_trajectory_msg, message_info)) {
+    predicted_trajectory_ = predicted_trajectory_msg;
+  }
 }
 
 bool LaneDepartureCheckerNode::isDataReady()
@@ -298,6 +327,8 @@ void LaneDepartureCheckerNode::onTimer()
   std::map<std::string, double> processing_time_map;
   tier4_autoware_utils::StopWatch<std::chrono::milliseconds> stop_watch;
   stop_watch.tic("Total");
+
+  takeData();
 
   if (!isDataReady()) {
     return;

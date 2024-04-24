@@ -10,6 +10,7 @@
     warn_rate: 0.0
     error_rate: 0.0
     timeout: 0.0
+    queue_size: 1
 
 - module: map
   mode: [online, logging_simulation]
@@ -23,6 +24,7 @@
     warn_rate: 0.0
     error_rate: 0.0
     timeout: 0.0
+    queue_size: 1
 
 - module: localization
   mode: [online, logging_simulation, planning_simulation]
@@ -36,6 +38,7 @@
     warn_rate: 0.0
     error_rate: 0.0
     timeout: 0.0
+    queue_size: 1
 
 - module: localization
   mode: [online, logging_simulation]
@@ -49,6 +52,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 60
 
 - module: localization
   mode: [online, logging_simulation]
@@ -62,6 +66,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 15
 
 - module: perception
   mode: [online, logging_simulation]
@@ -75,6 +80,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 15
 
 - module: perception
   mode: [online, logging_simulation, planning_simulation]
@@ -88,6 +94,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 15
 
 - module: perception
   mode: [online, logging_simulation]
@@ -101,6 +108,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 15
 
 - module: planning
   mode: [online, logging_simulation, planning_simulation]
@@ -114,6 +122,7 @@
     warn_rate: 0.0
     error_rate: 0.0
     timeout: 0.0
+    queue_size: 1
 
 - module: planning
   mode: [online, logging_simulation, planning_simulation]
@@ -127,6 +136,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 15
 
 - module: control
   mode: [online, logging_simulation, planning_simulation]
@@ -140,6 +150,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 60
 
 - module: control
   mode: [online, logging_simulation, planning_simulation]
@@ -153,6 +164,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 60
 
 - module: vehicle
   mode: [online, logging_simulation, planning_simulation]
@@ -166,6 +178,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 60
 
 - module: vehicle
   mode: [online, logging_simulation, planning_simulation]
@@ -179,6 +192,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 60
 
 - module: system
   mode: [online, logging_simulation, planning_simulation]
@@ -192,6 +206,7 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 60
 
 - module: localization
   mode: [online, logging_simulation, planning_simulation]
@@ -206,3 +221,4 @@
     warn_rate: 5.0
     error_rate: 1.0
     timeout: 1.0
+    queue_size: 60

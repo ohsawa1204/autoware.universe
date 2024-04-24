@@ -22,13 +22,26 @@ namespace operation_mode_transition_manager
 OperationModeTransitionManager::OperationModeTransitionManager(const rclcpp::NodeOptions & options)
 : Node("operation_mode_transition_manager", options), compatibility_(this)
 {
+
+  auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
   sub_control_mode_report_ = create_subscription<ControlModeReport>(
     "control_mode_report", 1,
-    [this](const ControlModeReport::SharedPtr msg) { control_mode_report_ = *msg; });
+    [this](const ControlModeReport::SharedPtr msg) {
+      assert(false);
+      control_mode_report_ = *msg;
+    },
+    noexec_subscription_options);
 
   sub_gate_operation_mode_ = create_subscription<OperationModeState>(
     "gate_operation_mode", 1,
-    [this](const OperationModeState::SharedPtr msg) { gate_operation_mode_ = *msg; });
+    [this](const OperationModeState::SharedPtr msg) {
+      assert(false);
+      gate_operation_mode_ = *msg;
+    },
+    noexec_subscription_options);
 
   cli_control_mode_ = create_client<ControlModeCommand>("control_mode_request");
   pub_debug_info_ = create_publisher<ModeChangeBase::DebugInfo>("~/debug_info", 1);
@@ -92,6 +105,27 @@ void OperationModeTransitionManager::onChangeAutowareControl(
   response->status.success = true;
 }
 
+void OperationModeTransitionManager::updateControlModeReport()
+{
+  ControlModeReport control_mode_report_msg;
+  rclcpp::MessageInfo message_info;
+
+  if (sub_control_mode_report_->take(control_mode_report_msg, message_info)) {
+    control_mode_report_ = control_mode_report_msg;
+  }
+}
+
+void OperationModeTransitionManager::updateGateOperationMode()
+{
+  OperationModeState gate_operation_mode_msg;
+  rclcpp::MessageInfo message_info;
+
+  if (sub_gate_operation_mode_->take(gate_operation_mode_msg, message_info)) {
+    gate_operation_mode_ = gate_operation_mode_msg;
+  }
+}
+
+
 void OperationModeTransitionManager::onChangeOperationMode(
   const ChangeOperationModeAPI::Service::Request::SharedPtr request,
   const ChangeOperationModeAPI::Service::Response::SharedPtr response)
@@ -125,6 +159,7 @@ void OperationModeTransitionManager::changeOperationMode(std::optional<Operation
 {
   // NOTE: If request_mode is nullopt, indicates to enable autoware control
 
+  updateControlModeReport();
   const bool current_control = control_mode_report_.mode == ControlModeReport::AUTONOMOUS;
   const bool request_control = request_mode ? false : true;
 
@@ -243,6 +278,8 @@ void OperationModeTransitionManager::onTimer()
     }
   }
 
+  updateControlModeReport();
+  updateGateOperationMode();
   if (transition_) {
     processTransition();
   }

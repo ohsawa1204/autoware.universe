@@ -106,6 +106,7 @@ private:
    * @brief compute control command, and publish periodically
    */
   boost::optional<trajectory_follower::InputData> createInputData(rclcpp::Clock & clock) const;
+  void takeData();
   void callbackTimerControl();
   void onTrajectory(const autoware_auto_planning_msgs::msg::Trajectory::SharedPtr);
   void onOdometry(const nav_msgs::msg::Odometry::SharedPtr msg);

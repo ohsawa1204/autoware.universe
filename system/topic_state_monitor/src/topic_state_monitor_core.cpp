@@ -48,6 +48,7 @@ TopicStateMonitorNode::TopicStateMonitorNode(const rclcpp::NodeOptions & node_op
   node_param_.best_effort = declare_parameter("best_effort", false);
   node_param_.diag_name = declare_parameter<std::string>("diag_name");
   node_param_.is_transform = (node_param_.topic == "/tf" || node_param_.topic == "/tf_static");
+  node_param_.queue_size = declare_parameter<int>("queue_size", 10);
 
   if (node_param_.is_transform) {
     node_param_.frame_id = declare_parameter<std::string>("frame_id");
@@ -70,7 +71,7 @@ TopicStateMonitorNode::TopicStateMonitorNode(const rclcpp::NodeOptions & node_op
   topic_state_monitor_->setParam(param_);
 
   // Subscriber
-  rclcpp::QoS qos = rclcpp::QoS{1};
+  rclcpp::QoS qos = rclcpp::QoS{node_param_.queue_size};
   if (node_param_.transient_local) {
     qos.transient_local();
   }
@@ -78,23 +79,34 @@ TopicStateMonitorNode::TopicStateMonitorNode(const rclcpp::NodeOptions & node_op
     qos.best_effort();
   }
 
+  auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
   if (node_param_.is_transform) {
     sub_transform_ = this->create_subscription<tf2_msgs::msg::TFMessage>(
-      node_param_.topic, qos, [this](tf2_msgs::msg::TFMessage::ConstSharedPtr msg) {
+      node_param_.topic, qos,
+      [this](tf2_msgs::msg::TFMessage::ConstSharedPtr msg) {
+        assert(false);
         for (const auto & transform : msg->transforms) {
           if (
             transform.header.frame_id == node_param_.frame_id &&
             transform.child_frame_id == node_param_.child_frame_id) {
-            topic_state_monitor_->update();
+            rclcpp::Time empty = rclcpp::Time(0, 0);
+            topic_state_monitor_->update(empty);
           }
         }
-      });
+      },
+      noexec_subscription_options);
   } else {
     sub_topic_ = this->create_generic_subscription(
       node_param_.topic, node_param_.topic_type, qos,
       [this]([[maybe_unused]] std::shared_ptr<rclcpp::SerializedMessage> msg) {
-        topic_state_monitor_->update();
-      });
+        assert(false);
+        rclcpp::Time empty = rclcpp::Time(0, 0);
+        topic_state_monitor_->update(empty);
+      },
+      noexec_subscription_options);
   }
 
   // Diagnostic Updater
@@ -130,6 +142,24 @@ rcl_interfaces::msg::SetParametersResult TopicStateMonitorNode::onParameter(
 
 void TopicStateMonitorNode::onTimer()
 {
+  // Iterate to reading messages and updating the topic state.
+  bool is_taken = true;
+  rclcpp::MessageInfo message_info;
+  while (is_taken) {
+    if (node_param_.is_transform) {
+      tf2_msgs::msg::TFMessage::SharedPtr msg = std::make_shared<tf2_msgs::msg::TFMessage>();
+      is_taken = sub_transform_->take(*msg, message_info);
+    } else {
+      std::shared_ptr<rclcpp::SerializedMessage> serialized_msg = sub_topic_->create_serialized_message();
+      is_taken = sub_topic_->take_serialized(*serialized_msg.get(), message_info);
+    }
+
+    if (is_taken) {
+      rclcpp::Time source_timestamp(message_info.get_rmw_message_info().source_timestamp, RCL_ROS_TIME);
+      topic_state_monitor_->update(source_timestamp);
+    }
+  }
+
   // Publish diagnostics
   updater_.force_update();
 }

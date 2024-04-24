@@ -95,6 +95,9 @@ private:
   rcl_interfaces::msg::SetParametersResult onParameter(
     const std::vector<rclcpp::Parameter> & parameters);
 
+  /// @brief take subscription messages
+  void take();
+
   /// @brief callback for input trajectories. Publishes a trajectory with updated velocities
   /// @param[in] msg input trajectory message
   void onTrajectory(const Trajectory::ConstSharedPtr msg);

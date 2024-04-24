@@ -29,12 +29,21 @@ ControlValidator::ControlValidator(const rclcpp::NodeOptions & options)
 {
   using std::placeholders::_1;
 
+  auto noexec_callback_group = this->create_callback_group(
+    rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
   sub_kinematics_ = create_subscription<Odometry>(
     "~/input/kinematics", 1,
-    [this](const Odometry::ConstSharedPtr msg) { current_kinematics_ = msg; });
+    [this](const Odometry::ConstSharedPtr msg) {
+      assert(false);
+      current_kinematics_ = msg;
+    },
+    noexec_subscription_options);
   sub_reference_traj_ = create_subscription<Trajectory>(
     "~/input/reference_trajectory", 1,
-    std::bind(&ControlValidator::onReferenceTrajectory, this, _1));
+    std::bind(&ControlValidator::onReferenceTrajectory, this, _1), noexec_subscription_options);
   sub_predicted_traj_ = create_subscription<Trajectory>(
     "~/input/predicted_trajectory", 1,
     std::bind(&ControlValidator::onPredictedTrajectory, this, _1));
@@ -87,6 +96,20 @@ void ControlValidator::setStatus(
   }
 }
 
+void ControlValidator::takeData() {
+  Odometry::SharedPtr kinematics_msg = std::make_shared<Odometry>();
+  Trajectory::SharedPtr reference_trajectory_msg = std::make_shared<Trajectory>();
+  rclcpp::MessageInfo message_info;
+
+  if (sub_kinematics_->take(*kinematics_msg, message_info)) {
+    current_kinematics_ = kinematics_msg;
+  }
+
+  if (sub_reference_traj_->take(*reference_trajectory_msg, message_info)) {
+    current_reference_trajectory_ = reference_trajectory_msg;
+  }
+}
+
 void ControlValidator::setupDiag()
 {
   auto & d = diag_updater_;
@@ -121,6 +144,7 @@ bool ControlValidator::isDataReady()
 
 void ControlValidator::onReferenceTrajectory(const Trajectory::ConstSharedPtr msg)
 {
+  assert(false);
   current_reference_trajectory_ = msg;
 
   return;
@@ -128,6 +152,8 @@ void ControlValidator::onReferenceTrajectory(const Trajectory::ConstSharedPtr ms
 
 void ControlValidator::onPredictedTrajectory(const Trajectory::ConstSharedPtr msg)
 {
+  // take message
+  takeData();
   current_predicted_trajectory_ = msg;
 
   if (!isDataReady()) return;

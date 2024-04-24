@@ -231,6 +231,7 @@ void ScenarioSelectorNode::onOdom(const nav_msgs::msg::Odometry::ConstSharedPtr 
 
 void ScenarioSelectorNode::onParkingState(const std_msgs::msg::Bool::ConstSharedPtr msg)
 {
+  assert(false);
   is_parking_completed_ = msg->data;
 }
 
@@ -267,8 +268,25 @@ bool ScenarioSelectorNode::isDataReady()
   return true;
 }
 
+void ScenarioSelectorNode::takeData()
+{
+  rclcpp::MessageInfo message_info;
+
+  std::shared_ptr<void> odom_type_erase_msg =  sub_odom_->create_message();
+  if (sub_odom_->take_type_erased(odom_type_erase_msg.get(), message_info)) {
+    sub_odom_->handle_message(odom_type_erase_msg, message_info);
+  }
+
+  std_msgs::msg::Bool::SharedPtr parking_state_msg = std::make_shared<std_msgs::msg::Bool>();
+  if (sub_parking_state_->take(*parking_state_msg, message_info)) {
+    is_parking_completed_ = parking_state_msg->data;
+  }
+}
+
 void ScenarioSelectorNode::onTimer()
 {
+  takeData();
+
   if (!isDataReady()) {
     return;
   }
@@ -339,11 +357,13 @@ ScenarioSelectorNode::ScenarioSelectorNode(const rclcpp::NodeOptions & node_opti
   is_parking_completed_(false)
 {
   // Input
+  // sub_lane_driving_trajectory allows function to run on a another thread
   sub_lane_driving_trajectory_ =
     this->create_subscription<autoware_auto_planning_msgs::msg::Trajectory>(
       "input/lane_driving/trajectory", rclcpp::QoS{1},
       std::bind(&ScenarioSelectorNode::onLaneDrivingTrajectory, this, std::placeholders::_1));
 
+  // sub_parking_driving_trajectory allows function to run on a another thread
   sub_parking_trajectory_ = this->create_subscription<autoware_auto_planning_msgs::msg::Trajectory>(
     "input/parking/trajectory", rclcpp::QoS{1},
     std::bind(&ScenarioSelectorNode::onParkingTrajectory, this, std::placeholders::_1));
@@ -354,12 +374,19 @@ ScenarioSelectorNode::ScenarioSelectorNode(const rclcpp::NodeOptions & node_opti
   sub_route_ = this->create_subscription<autoware_planning_msgs::msg::LaneletRoute>(
     "input/route", rclcpp::QoS{1}.transient_local(),
     std::bind(&ScenarioSelectorNode::onRoute, this, std::placeholders::_1));
+
+  auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
+
+
   sub_odom_ = this->create_subscription<nav_msgs::msg::Odometry>(
     "input/odometry", rclcpp::QoS{100},
-    std::bind(&ScenarioSelectorNode::onOdom, this, std::placeholders::_1));
+    std::bind(&ScenarioSelectorNode::onOdom, this, std::placeholders::_1), noexec_subscription_options);
   sub_parking_state_ = this->create_subscription<std_msgs::msg::Bool>(
     "is_parking_completed", rclcpp::QoS{100},
-    std::bind(&ScenarioSelectorNode::onParkingState, this, std::placeholders::_1));
+    std::bind(&ScenarioSelectorNode::onParkingState, this, std::placeholders::_1), noexec_subscription_options);
 
   // Output
   pub_scenario_ =

@@ -80,6 +80,17 @@ std::vector<double> calcSegmentLengthVector(const std::vector<TrajectoryPoint> &
   }
   return segment_length_vector;
 }
+
+rclcpp::SubscriptionOptions createNoExecSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
 }  // namespace
 
 ObstacleAvoidancePlanner::ObstacleAvoidancePlanner(const rclcpp::NodeOptions & node_options)
@@ -96,7 +107,8 @@ ObstacleAvoidancePlanner::ObstacleAvoidancePlanner(const rclcpp::NodeOptions & n
   path_sub_ = create_subscription<Path>(
     "~/input/path", 1, std::bind(&ObstacleAvoidancePlanner::onPath, this, std::placeholders::_1));
   odom_sub_ = create_subscription<Odometry>(
-    "~/input/odometry", 1, [this](const Odometry::ConstSharedPtr msg) { ego_state_ptr_ = msg; });
+    "~/input/odometry", 1, [this](const Odometry::ConstSharedPtr msg) { (void)msg; assert(false); },
+    createNoExecSubscriptionOptions(this));
 
   // debug publisher
   debug_extended_traj_pub_ = create_publisher<Trajectory>("~/debug/extended_traj", 1);
@@ -218,8 +230,19 @@ void ObstacleAvoidancePlanner::resetPreviousData()
   mpt_optimizer_ptr_->resetPreviousData();
 }
 
+void ObstacleAvoidancePlanner::take()
+{
+  Odometry::SharedPtr ego_state_msg = std::make_shared<Odometry>();
+  rclcpp::MessageInfo msg_info;
+
+  if (odom_sub_->take(*ego_state_msg, msg_info))
+    ego_state_ptr_ = ego_state_msg;
+}
+
 void ObstacleAvoidancePlanner::onPath(const Path::ConstSharedPtr path_ptr)
 {
+  take();
+
   time_keeper_ptr_->init();
   time_keeper_ptr_->tic(__func__);
 

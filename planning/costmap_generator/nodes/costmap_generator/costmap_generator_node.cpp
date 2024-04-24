@@ -195,17 +195,23 @@ CostmapGenerator::CostmapGenerator(const rclcpp::NodeOptions & node_options)
   }
 
   // Subscribers
+   auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
   using std::placeholders::_1;
   sub_objects_ = this->create_subscription<autoware_auto_perception_msgs::msg::PredictedObjects>(
-    "~/input/objects", 1, std::bind(&CostmapGenerator::onObjects, this, _1));
+    "~/input/objects", 1, std::bind(&CostmapGenerator::onObjects, this, _1), noexec_subscription_options);
   sub_points_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/input/points_no_ground", rclcpp::SensorDataQoS(),
-    std::bind(&CostmapGenerator::onPoints, this, _1));
-  sub_lanelet_bin_map_ = this->create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>(
+    "~/input/points_no_ground", rclcpp::SensorDataQoS().keep_last(1),
+    std::bind(&CostmapGenerator::onPoints, this, _1), noexec_subscription_options);
+  sub_lanelet_bin_map_ = 
+  // sub_lanelet_bin_map_ allows to apply callback function to a thread.  
+  this->create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>(
     "~/input/vector_map", rclcpp::QoS{1}.transient_local(),
     std::bind(&CostmapGenerator::onLaneletMapBin, this, _1));
   sub_scenario_ = this->create_subscription<tier4_planning_msgs::msg::Scenario>(
-    "~/input/scenario", 1, std::bind(&CostmapGenerator::onScenario, this, _1));
+    "~/input/scenario", 1, std::bind(&CostmapGenerator::onScenario, this, _1), noexec_subscription_options);
 
   // Publishers
   pub_costmap_ = this->create_publisher<grid_map_msgs::msg::GridMap>("~/output/grid_map", 1);
@@ -280,21 +286,48 @@ void CostmapGenerator::onLaneletMapBin(
 void CostmapGenerator::onObjects(
   const autoware_auto_perception_msgs::msg::PredictedObjects::ConstSharedPtr msg)
 {
+  assert(false);
   objects_ = msg;
 }
 
 void CostmapGenerator::onPoints(const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
 {
+  assert(false);
   points_ = msg;
 }
 
 void CostmapGenerator::onScenario(const tier4_planning_msgs::msg::Scenario::ConstSharedPtr msg)
 {
+  assert(false);
   scenario_ = msg;
+}
+
+void CostmapGenerator::takeData() {
+  rclcpp::MessageInfo message_info;
+  
+  autoware_auto_perception_msgs::msg::PredictedObjects::SharedPtr objects_msg = std::make_shared<autoware_auto_perception_msgs::msg::PredictedObjects>();
+
+  if (sub_objects_->take(*objects_msg, message_info)) {
+    objects_ = objects_msg;
+  }
+
+  sensor_msgs::msg::PointCloud2::SharedPtr points_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
+  if (sub_points_->take(*points_msg, message_info)) {
+    points_ = points_msg;
+  }
+
+  tier4_planning_msgs::msg::Scenario::SharedPtr scenario_msg = std::make_shared<tier4_planning_msgs::msg::Scenario>();
+
+  if (sub_scenario_->take(*scenario_msg, message_info)) {
+    scenario_ = scenario_msg;
+  }
 }
 
 void CostmapGenerator::onTimer()
 {
+  // take data
+  takeData();
+
   if (!isActive()) {
     return;
   }

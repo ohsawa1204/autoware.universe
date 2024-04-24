@@ -92,6 +92,8 @@ private:
   void onReferenceTrajectory(const Trajectory::ConstSharedPtr msg);
   void onPredictedTrajectory(const Trajectory::ConstSharedPtr msg);
 
+  void takeData();
+
   // Publisher
   tier4_autoware_utils::DebugPublisher debug_publisher_{this, "~/debug"};
   tier4_autoware_utils::ProcessingTimePublisher processing_time_publisher_{this};

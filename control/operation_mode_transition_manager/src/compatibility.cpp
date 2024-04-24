@@ -21,15 +21,20 @@ namespace operation_mode_transition_manager
 
 Compatibility::Compatibility(rclcpp::Node * node) : node_(node)
 {
+  // Define non executed callback group
+  auto noexec_callback_group = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
   sub_autoware_engage_ = node->create_subscription<AutowareEngage>(
     "/api/autoware/get/engage", 1,
-    std::bind(&Compatibility::on_autoware_engage, this, std::placeholders::_1));
+    std::bind(&Compatibility::on_autoware_engage, this, std::placeholders::_1), noexec_subscription_options);
   sub_gate_mode_ = node->create_subscription<GateMode>(
     "/control/current_gate_mode", 1,
-    std::bind(&Compatibility::on_gate_mode, this, std::placeholders::_1));
+    std::bind(&Compatibility::on_gate_mode, this, std::placeholders::_1), noexec_subscription_options);
   sub_selector_mode_ = node->create_subscription<SelectorModeMsg>(
     "/control/external_cmd_selector/current_selector_mode", 1,
-    std::bind(&Compatibility::on_selector_mode, this, std::placeholders::_1));
+    std::bind(&Compatibility::on_selector_mode, this, std::placeholders::_1), noexec_subscription_options);
 
   pub_autoware_engage_ = node->create_publisher<AutowareEngage>("/autoware/engage", 1);
   pub_gate_mode_ = node->create_publisher<GateMode>("/control/gate_mode_cmd", 1);
@@ -39,21 +44,44 @@ Compatibility::Compatibility(rclcpp::Node * node) : node_(node)
 
 void Compatibility::on_autoware_engage(const AutowareEngage::ConstSharedPtr msg)
 {
+  assert(false);
   autoware_engage_ = msg;
 }
 
 void Compatibility::on_gate_mode(const GateMode::ConstSharedPtr msg)
 {
+  assert(false);
   gate_mode_ = msg;
 }
 
 void Compatibility::on_selector_mode(const SelectorModeMsg::ConstSharedPtr msg)
 {
+  assert(false);
   selector_mode_ = msg;
 }
 
-std::optional<OperationMode> Compatibility::get_mode() const
+void Compatibility::take_data() {
+  rclcpp::MessageInfo msg_info;
+  AutowareEngage::SharedPtr autoware_engage_msg = std::make_shared<AutowareEngage>();
+
+  if (sub_autoware_engage_->take(*autoware_engage_msg, msg_info)) {
+    autoware_engage_ = autoware_engage_msg;
+  }
+
+  GateMode::SharedPtr gate_mode_msg = std::make_shared<GateMode>();
+  if (sub_gate_mode_->take(*gate_mode_msg, msg_info)) {
+    gate_mode_ = gate_mode_msg;
+  }
+
+  SelectorModeMsg::SharedPtr selector_mode_msg = std::make_shared<SelectorModeMsg>();
+  if (sub_selector_mode_->take(*selector_mode_msg, msg_info)) {
+    selector_mode_ = selector_mode_msg;
+  }
+}
+
+std::optional<OperationMode> Compatibility::get_mode()
 {
+  take_data();
   if (!(autoware_engage_ && gate_mode_ && selector_mode_)) {
     return std::nullopt;
   }
@@ -75,6 +103,7 @@ std::optional<OperationMode> Compatibility::get_mode() const
 
 void Compatibility::set_mode(const OperationMode mode)
 {
+  take_data();
   // Set operation mode in order from upstream node
   if (!(autoware_engage_ && gate_mode_ && selector_mode_)) {
     return;

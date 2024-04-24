@@ -153,6 +153,8 @@ private:
 
   void onTimer();
 
+  void takeData();
+
   void reset();
   bool isPlanRequired();
   void planTrajectory();

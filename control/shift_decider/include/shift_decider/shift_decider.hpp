@@ -37,6 +37,8 @@ private:
   void updateCurrentShiftCmd();
   void initTimer(double period_s);
 
+  void takeData();
+
   rclcpp::Publisher<autoware_auto_vehicle_msgs::msg::GearCommand>::SharedPtr pub_shift_cmd_;
   rclcpp::Subscription<autoware_auto_control_msgs::msg::AckermannControlCommand>::SharedPtr
     sub_control_cmd_;

@@ -26,17 +26,28 @@ ExternalCmdConverterNode::ExternalCmdConverterNode(const rclcpp::NodeOptions & n
 {
   using std::placeholders::_1;
 
+  auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
   pub_cmd_ = create_publisher<AckermannControlCommand>("out/control_cmd", rclcpp::QoS{1});
   pub_current_cmd_ =
     create_publisher<ExternalControlCommand>("out/latest_external_control_cmd", rclcpp::QoS{1});
+
+    // subscriptions.
   sub_velocity_ = create_subscription<Odometry>(
-    "in/odometry", 1, std::bind(&ExternalCmdConverterNode::onVelocity, this, _1));
+    "in/odometry", 1, std::bind(&ExternalCmdConverterNode::onVelocity, this, _1), noexec_subscription_options);
+
+  // callback for external_control_cmd is executed in another thread.
   sub_control_cmd_ = create_subscription<ExternalControlCommand>(
     "in/external_control_cmd", 1, std::bind(&ExternalCmdConverterNode::onExternalCmd, this, _1));
+
   sub_shift_cmd_ = create_subscription<GearCommand>(
-    "in/shift_cmd", 1, std::bind(&ExternalCmdConverterNode::onGearCommand, this, _1));
+    "in/shift_cmd", 1, std::bind(&ExternalCmdConverterNode::onGearCommand, this, _1), noexec_subscription_options);
   sub_gate_mode_ = create_subscription<tier4_control_msgs::msg::GateMode>(
-    "in/current_gate_mode", 1, std::bind(&ExternalCmdConverterNode::onGateMode, this, _1));
+    "in/current_gate_mode", 1, std::bind(&ExternalCmdConverterNode::onGateMode, this, _1), noexec_subscription_options);
+
+  // callback for heartbeat_ is executed in another thread.
   sub_emergency_stop_heartbeat_ = create_subscription<tier4_external_api_msgs::msg::Heartbeat>(
     "in/emergency_stop", 1,
     std::bind(&ExternalCmdConverterNode::onEmergencyStopHeartbeat, this, _1));
@@ -84,13 +95,32 @@ void ExternalCmdConverterNode::onTimer()
   updater_.force_update();
 }
 
+void ExternalCmdConverterNode::takeData() {
+  // take velocity
+  Odometry::SharedPtr velocity_msg = std::make_shared<Odometry>();
+  GearCommand::SharedPtr shift_cmd_msg = std::make_shared<GearCommand>();
+  rclcpp::MessageInfo message_info;
+
+  
+  if (sub_velocity_->take(*velocity_msg, message_info)) {
+    current_velocity_ptr_ = std::make_shared<double>(velocity_msg->twist.twist.linear.x);
+  }
+
+  if (sub_shift_cmd_->take(*shift_cmd_msg, message_info)) {
+    current_shift_cmd_ = shift_cmd_msg;
+  }
+
+}
+
 void ExternalCmdConverterNode::onVelocity(const Odometry::ConstSharedPtr msg)
 {
+  assert(false);
   current_velocity_ptr_ = std::make_shared<double>(msg->twist.twist.linear.x);
 }
 
 void ExternalCmdConverterNode::onGearCommand(const GearCommand::ConstSharedPtr msg)
 {
+  assert(false);
   current_shift_cmd_ = msg;
 }
 
@@ -109,6 +139,8 @@ void ExternalCmdConverterNode::onExternalCmd(const ExternalControlCommand::Const
     current_cmd.stamp = this->now();
     pub_current_cmd_->publish(current_cmd);
   }
+
+  takeData();
 
   // Save received time for rate check
   latest_cmd_received_time_ = std::make_shared<rclcpp::Time>(this->now());
@@ -205,6 +237,7 @@ void ExternalCmdConverterNode::checkTopicStatus(diagnostic_updater::DiagnosticSt
 void ExternalCmdConverterNode::onGateMode(
   const tier4_control_msgs::msg::GateMode::ConstSharedPtr msg)
 {
+  assert(false);
   current_gate_mode_ = msg;
 }
 
@@ -228,6 +261,14 @@ bool ExternalCmdConverterNode::checkEmergencyStopTopicTimeout()
 
 bool ExternalCmdConverterNode::checkRemoteTopicRate()
 {
+  tier4_control_msgs::msg::GateMode::SharedPtr current_gate_mode_msg = std::make_shared<tier4_control_msgs::msg::GateMode>();
+
+  rclcpp::MessageInfo message_info;
+
+  if (sub_gate_mode_->take(*current_gate_mode_msg, message_info)) {
+    current_gate_mode_ = current_gate_mode_msg;
+  }
+
   if (!current_gate_mode_) {
     return true;
   }

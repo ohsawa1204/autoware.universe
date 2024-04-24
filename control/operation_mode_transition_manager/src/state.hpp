@@ -58,6 +58,7 @@ public:
   bool isModeChangeCompleted() override;
   bool isModeChangeAvailable() override;
   DebugInfo getDebugInfo() override { return debug_info_; }
+  void takeData();
 
 private:
   bool hasDangerAcceleration();

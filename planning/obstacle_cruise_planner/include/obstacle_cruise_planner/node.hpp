@@ -42,6 +42,9 @@ public:
   explicit ObstacleCruisePlannerNode(const rclcpp::NodeOptions & node_options);
 
 private:
+  // take subscription messages
+  void take();
+
   // callback functions
   rcl_interfaces::msg::SetParametersResult onParam(
     const std::vector<rclcpp::Parameter> & parameters);

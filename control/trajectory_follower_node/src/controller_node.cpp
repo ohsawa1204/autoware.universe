@@ -62,17 +62,24 @@ Controller::Controller(const rclcpp::NodeOptions & node_options) : Node("control
       throw std::domain_error("[LongitudinalController] invalid algorithm");
   }
 
+  auto noexec_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+
   sub_ref_path_ = create_subscription<autoware_auto_planning_msgs::msg::Trajectory>(
-    "~/input/reference_trajectory", rclcpp::QoS{1}, std::bind(&Controller::onTrajectory, this, _1));
+    "~/input/reference_trajectory", rclcpp::QoS{1}, std::bind(&Controller::onTrajectory, this, _1), noexec_subscription_options);
   sub_steering_ = create_subscription<autoware_auto_vehicle_msgs::msg::SteeringReport>(
-    "~/input/current_steering", rclcpp::QoS{1}, std::bind(&Controller::onSteering, this, _1));
+    "~/input/current_steering", rclcpp::QoS{1}, std::bind(&Controller::onSteering, this, _1), noexec_subscription_options);
   sub_odometry_ = create_subscription<nav_msgs::msg::Odometry>(
-    "~/input/current_odometry", rclcpp::QoS{1}, std::bind(&Controller::onOdometry, this, _1));
+    "~/input/current_odometry", rclcpp::QoS{1}, std::bind(&Controller::onOdometry, this, _1), noexec_subscription_options);
   sub_accel_ = create_subscription<geometry_msgs::msg::AccelWithCovarianceStamped>(
-    "~/input/current_accel", rclcpp::QoS{1}, std::bind(&Controller::onAccel, this, _1));
+    "~/input/current_accel", rclcpp::QoS{1}, std::bind(&Controller::onAccel, this, _1), noexec_subscription_options);
   sub_operation_mode_ = create_subscription<OperationModeState>(
     "~/input/current_operation_mode", rclcpp::QoS{1},
-    [this](const OperationModeState::SharedPtr msg) { current_operation_mode_ptr_ = msg; });
+    [this](const OperationModeState::SharedPtr msg) {
+      assert(false);
+      current_operation_mode_ptr_ = msg;
+    }, noexec_subscription_options);
   control_cmd_pub_ = create_publisher<autoware_auto_control_msgs::msg::AckermannControlCommand>(
     "~/output/control_cmd", rclcpp::QoS{1}.transient_local());
   pub_processing_time_lat_ms_ =
@@ -112,21 +119,25 @@ Controller::LongitudinalControllerMode Controller::getLongitudinalControllerMode
 
 void Controller::onTrajectory(const autoware_auto_planning_msgs::msg::Trajectory::SharedPtr msg)
 {
+  assert(false);
   current_trajectory_ptr_ = msg;
 }
 
 void Controller::onOdometry(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
+  assert(false);
   current_odometry_ptr_ = msg;
 }
 
 void Controller::onSteering(const autoware_auto_vehicle_msgs::msg::SteeringReport::SharedPtr msg)
 {
+  assert(false);
   current_steering_ptr_ = msg;
 }
 
 void Controller::onAccel(const geometry_msgs::msg::AccelWithCovarianceStamped::SharedPtr msg)
 {
+  assert(false);
   current_accel_ptr_ = msg;
 }
 
@@ -148,6 +159,35 @@ bool Controller::isTimeOut(
     return true;
   }
   return false;
+}
+
+void Controller::takeData() {
+  rclcpp::MessageInfo message_info;
+
+  autoware_auto_planning_msgs::msg::Trajectory::SharedPtr trajectory = std::make_shared<autoware_auto_planning_msgs::msg::Trajectory>();
+  if (sub_ref_path_->take(*trajectory, message_info)) {
+    current_trajectory_ptr_ = trajectory;
+  }
+
+  nav_msgs::msg::Odometry::SharedPtr odometry = std::make_shared<nav_msgs::msg::Odometry>();
+  if (sub_odometry_->take(*odometry, message_info)) {
+    current_odometry_ptr_ = odometry;
+  }
+
+  autoware_auto_vehicle_msgs::msg::SteeringReport::SharedPtr steering = std::make_shared<autoware_auto_vehicle_msgs::msg::SteeringReport>();
+  if (sub_steering_->take(*steering, message_info)) {
+    current_steering_ptr_ = steering;
+  }
+
+  geometry_msgs::msg::AccelWithCovarianceStamped::SharedPtr accel = std::make_shared<geometry_msgs::msg::AccelWithCovarianceStamped>();
+  if (sub_accel_->take(*accel, message_info)) {
+    current_accel_ptr_ = accel;
+  }
+
+  OperationModeState::SharedPtr operation_mode = std::make_shared<OperationModeState>();
+  if (sub_operation_mode_->take(*operation_mode, message_info)) {
+    current_operation_mode_ptr_ = operation_mode;
+  }
 }
 
 boost::optional<trajectory_follower::InputData> Controller::createInputData(
@@ -190,6 +230,9 @@ boost::optional<trajectory_follower::InputData> Controller::createInputData(
 
 void Controller::callbackTimerControl()
 {
+  // 0. take message from subscribers
+  takeData();
+
   // 1. create input data
   const auto input_data = createInputData(*get_clock());
   if (!input_data) {

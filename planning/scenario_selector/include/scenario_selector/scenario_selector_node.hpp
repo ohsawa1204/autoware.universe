@@ -65,6 +65,8 @@ public:
     const std::string & scenario);
 
 private:
+  void takeData();
+
   rclcpp::TimerBase::SharedPtr timer_;
 
   rclcpp::Subscription<autoware_auto_mapping_msgs::msg::HADMapBin>::SharedPtr sub_lanelet_map_;

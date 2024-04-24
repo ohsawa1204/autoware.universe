@@ -36,6 +36,20 @@
 
 namespace obstacle_velocity_limiter
 {
+namespace
+{
+rclcpp::SubscriptionOptions createNoExecSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
+}  // namespace
+
 ObstacleVelocityLimiterNode::ObstacleVelocityLimiterNode(const rclcpp::NodeOptions & node_options)
 : rclcpp::Node("obstacle_velocity_limiter", node_options),
   preprocessing_params_(*this),
@@ -43,27 +57,29 @@ ObstacleVelocityLimiterNode::ObstacleVelocityLimiterNode(const rclcpp::NodeOptio
   obstacle_params_(*this),
   velocity_params_(*this)
 {
+  auto subscription_no_exec_options = createNoExecSubscriptionOptions(this);
   sub_trajectory_ = create_subscription<Trajectory>(
     "~/input/trajectory", 1, [this](const Trajectory::ConstSharedPtr msg) { onTrajectory(msg); });
   sub_occupancy_grid_ = create_subscription<OccupancyGrid>(
     "~/input/occupancy_grid", 1,
-    [this](const OccupancyGrid::ConstSharedPtr msg) { occupancy_grid_ptr_ = msg; });
+    [this](const OccupancyGrid::ConstSharedPtr msg) { (void)msg; assert(false); },
+    subscription_no_exec_options);
   sub_pointcloud_ = create_subscription<PointCloud>(
     "~/input/obstacle_pointcloud", rclcpp::QoS(1).best_effort(),
-    [this](const PointCloud::ConstSharedPtr msg) { pointcloud_ptr_ = msg; });
+    [this](const PointCloud::ConstSharedPtr msg) { (void)msg; assert(false); },
+    subscription_no_exec_options);
   sub_objects_ = create_subscription<PredictedObjects>(
     "~/input/dynamic_obstacles", 1,
-    [this](const PredictedObjects::ConstSharedPtr msg) { dynamic_obstacles_ptr_ = msg; });
+    [this](const PredictedObjects::ConstSharedPtr msg) { (void)msg; assert(false); },
+    subscription_no_exec_options);
   sub_odom_ = create_subscription<nav_msgs::msg::Odometry>(
     "~/input/odometry", rclcpp::QoS{1},
-    [this](const nav_msgs::msg::Odometry::ConstSharedPtr msg) { current_odometry_ptr_ = msg; });
+    [this](const nav_msgs::msg::Odometry::ConstSharedPtr msg) { (void)msg; assert(false); },
+    subscription_no_exec_options);
   map_sub_ = create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>(
     "~/input/map", rclcpp::QoS{1}.transient_local(),
-    [this](const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr msg) {
-      lanelet::utils::conversion::fromBinMsg(*msg, lanelet_map_ptr_);
-      static_map_obstacles_ =
-        extractStaticObstacles(*lanelet_map_ptr_, obstacle_params_.static_map_tags);
-    });
+    [this](const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr msg) { (void)msg; assert(false); },
+    subscription_no_exec_options);
 
   pub_trajectory_ = create_publisher<Trajectory>("~/output/trajectory", 1);
   pub_debug_markers_ =
@@ -170,8 +186,38 @@ rcl_interfaces::msg::SetParametersResult ObstacleVelocityLimiterNode::onParamete
   return result;
 }
 
+void ObstacleVelocityLimiterNode::take()
+{
+  OccupancyGrid::SharedPtr occupancy_grid_msg = std::make_shared<OccupancyGrid>();
+  PointCloud::SharedPtr pointcloud_msg = std::make_shared<PointCloud>();
+  PredictedObjects::SharedPtr dynamic_obstacles_msg = std::make_shared<PredictedObjects>();
+  nav_msgs::msg::Odometry::SharedPtr current_odometry_msg = std::make_shared<nav_msgs::msg::Odometry>();
+  autoware_auto_mapping_msgs::msg::HADMapBin::SharedPtr lanelet_map_msg = std::make_shared<autoware_auto_mapping_msgs::msg::HADMapBin>();
+  rclcpp::MessageInfo msg_info;
+
+  if (sub_occupancy_grid_->take(*occupancy_grid_msg, msg_info))
+    occupancy_grid_ptr_ = occupancy_grid_msg;
+
+  if (sub_pointcloud_->take(*pointcloud_msg, msg_info))
+    pointcloud_ptr_ = pointcloud_msg;
+
+  if (sub_objects_->take(*dynamic_obstacles_msg, msg_info))
+    dynamic_obstacles_ptr_ = dynamic_obstacles_msg;
+
+  if (sub_odom_->take(*current_odometry_msg, msg_info))
+    current_odometry_ptr_ = current_odometry_msg;
+
+  if (map_sub_->take(*lanelet_map_msg, msg_info)) {
+    lanelet::utils::conversion::fromBinMsg(*lanelet_map_msg, lanelet_map_ptr_);
+    static_map_obstacles_ =
+      extractStaticObstacles(*lanelet_map_ptr_, obstacle_params_.static_map_tags);
+  }
+}
+
 void ObstacleVelocityLimiterNode::onTrajectory(const Trajectory::ConstSharedPtr msg)
 {
+  take();
+
   if (!validInputs()) return;
   const auto t_start = std::chrono::system_clock::now();
   const auto ego_idx =

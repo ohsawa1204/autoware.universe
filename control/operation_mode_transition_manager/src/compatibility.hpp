@@ -30,7 +30,7 @@ class Compatibility
 public:
   explicit Compatibility(rclcpp::Node * node);
   void set_mode(const OperationMode mode);
-  std::optional<OperationMode> get_mode() const;
+  std::optional<OperationMode> get_mode();
 
 private:
   using AutowareEngage = autoware_auto_vehicle_msgs::msg::Engage;
@@ -46,6 +46,7 @@ private:
   void on_autoware_engage(const AutowareEngage::ConstSharedPtr msg);
   void on_gate_mode(const GateMode::ConstSharedPtr msg);
   void on_selector_mode(const SelectorModeMsg::ConstSharedPtr msg);
+  void take_data();
 
   bool is_calling_service_ = false;
   rclcpp::Node * node_;

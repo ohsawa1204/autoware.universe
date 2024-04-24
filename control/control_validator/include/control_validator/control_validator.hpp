@@ -58,6 +58,8 @@ private:
 
   void setupParameters();
 
+  void takeData();
+
   bool isDataReady();
 
   void validate(const Trajectory & trajectory);

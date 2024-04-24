@@ -61,6 +61,7 @@ private:
   rclcpp::Subscription<tier4_external_api_msgs::msg::Heartbeat>::SharedPtr
     sub_emergency_stop_heartbeat_;
 
+  void takeData();
   void onVelocity(const Odometry::ConstSharedPtr msg);
   void onExternalCmd(const ExternalControlCommand::ConstSharedPtr cmd_ptr);
   void onGearCommand(const GearCommand::ConstSharedPtr msg);
