@@ -20,6 +20,10 @@
 #include <string>
 #include <utility>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace pointcloud_preprocessor
 {
 /** @brief Constructor. */
@@ -55,6 +59,15 @@ DistortionCorrectorComponent::DistortionCorrectorComponent(const rclcpp::NodeOpt
   input_points_sub_ = this->create_subscription<PointCloud2>(
     "~/input/pointcloud", rclcpp::SensorDataQoS(),
     std::bind(&DistortionCorrectorComponent::onPointCloud, this, std::placeholders::_1));
+
+  std::lock_guard<std::mutex> lock(___global_mutex);
+  if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf2_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
+  } else {
+      tf2_buffer_ = ___global_tf_buffer_;
+      tf2_listener_ = ___global_tf_listener_;
+  }
 }
 
 void DistortionCorrectorComponent::onTwistWithCovarianceStamped(
@@ -153,7 +166,7 @@ bool DistortionCorrectorComponent::getTransform(
 
   try {
     const auto transform_msg =
-      tf2_buffer_.lookupTransform(target_frame, source_frame, tf2::TimePointZero);
+      tf2_buffer_->lookupTransform(target_frame, source_frame, tf2::TimePointZero);
     tf2::convert(transform_msg.transform, *tf2_transform_ptr);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN(get_logger(), "%s", ex.what());

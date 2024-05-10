@@ -61,6 +61,10 @@
 #include <utility>
 #include <vector>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 pointcloud_preprocessor::Filter::Filter(
   const std::string & filter_name, const rclcpp::NodeOptions & options)
@@ -108,8 +112,14 @@ pointcloud_preprocessor::Filter::Filter(
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void pointcloud_preprocessor::Filter::setupTF()
 {
-  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  std::lock_guard<std::mutex> lock(___global_mutex);
+  if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -72,8 +72,8 @@ private:
   std::unique_ptr<tier4_autoware_utils::StopWatch<std::chrono::milliseconds>> stop_watch_ptr_;
   std::unique_ptr<tier4_autoware_utils::DebugPublisher> debug_publisher_;
 
-  tf2_ros::Buffer tf2_buffer_{get_clock()};
-  tf2_ros::TransformListener tf2_listener_{tf2_buffer_};
+  std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
 
   std::deque<geometry_msgs::msg::TwistStamped> twist_queue_;
   std::deque<geometry_msgs::msg::Vector3Stamped> angular_velocity_queue_;
