@@ -24,6 +24,7 @@ include_directories(
 
 add_library(pointcloud_preprocessor_filter_base SHARED
   src/filter.cpp
+  src/filter1.cpp
 )
 
 target_include_directories(pointcloud_preprocessor_filter_base PUBLIC
@@ -62,6 +63,8 @@ ament_auto_add_library(pointcloud_preprocessor_filter SHARED
   src/concatenate_data/concatenate_pointclouds.cpp
   src/time_synchronizer/time_synchronizer_nodelet.cpp
   src/crop_box_filter/crop_box_filter_nodelet.cpp
+  src/crop_box_filter/crop_box_filter1_nodelet.cpp
+  src/dummy.cpp
   src/downsample_filter/voxel_grid_downsample_filter_nodelet.cpp
   src/downsample_filter/random_downsample_filter_nodelet.cpp
   src/downsample_filter/approximate_downsample_filter_nodelet.cpp
@@ -107,6 +110,14 @@ rclcpp_components_register_node(pointcloud_preprocessor_filter
 rclcpp_components_register_node(pointcloud_preprocessor_filter
   PLUGIN "pointcloud_preprocessor::CropBoxFilterComponent"
   EXECUTABLE crop_box_filter_node)
+
+rclcpp_components_register_node(pointcloud_preprocessor_filter
+  PLUGIN "pointcloud_preprocessor::CropBoxFilter1Component"
+  EXECUTABLE crop_box_filter1_node)
+
+rclcpp_components_register_node(pointcloud_preprocessor_filter
+  PLUGIN "pointcloud_preprocessor::Dummy"
+  EXECUTABLE dummy_node)
 
 # ========== Down Sampler Filter ==========
 # -- Voxel Grid Downsample Filter --
