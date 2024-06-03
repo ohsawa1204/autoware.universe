@@ -19,6 +19,7 @@
 
 #include <autoware_auto_perception_msgs/msg/detected_objects.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -53,7 +54,7 @@ public:
   void publishNeighborPointcloud(const std_msgs::msg::Header & header)
   {
     sensor_msgs::msg::PointCloud2 output;
-    pcl::toROSMsg(*neighbor_pointcloud_, output);
+    pcl::alter_toROSMsg(*neighbor_pointcloud_, output);
     output.header = header;
     neighbor_pointcloud_pub_->publish(output);
     neighbor_pointcloud_->clear();
@@ -62,7 +63,7 @@ public:
   void publishPointcloudWithinPolygon(const std_msgs::msg::Header & header)
   {
     sensor_msgs::msg::PointCloud2 output;
-    pcl::toROSMsg(*pointcloud_within_polygon_, output);
+    pcl::alter_toROSMsg(*pointcloud_within_polygon_, output);
     output.header = header;
     pointcloud_within_polygon_pub_->publish(output);
     pointcloud_within_polygon_->clear();

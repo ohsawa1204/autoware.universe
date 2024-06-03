@@ -15,6 +15,7 @@
 #include "euclidean_cluster_node.hpp"
 
 #include "euclidean_cluster/utils.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <vector>
 
@@ -52,7 +53,7 @@ void EuclideanClusterNode::onPointCloud(
 
   // convert ros to pcl
   pcl::PointCloud<pcl::PointXYZ>::Ptr raw_pointcloud_ptr(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*input_msg, *raw_pointcloud_ptr);
+  pcl::alter_fromROSMsg(*input_msg, *raw_pointcloud_ptr);
 
   // clustering
   std::vector<pcl::PointCloud<pcl::PointXYZ>> clusters;

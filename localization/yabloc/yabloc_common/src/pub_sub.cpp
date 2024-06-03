@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "yabloc_common/pub_sub.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <cv_bridge/cv_bridge.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -46,7 +47,7 @@ void publish_cloud(
 {
   // Convert to msg
   sensor_msgs::msg::PointCloud2 cloud_msg;
-  pcl::toROSMsg(cloud, cloud_msg);
+  pcl::alter_toROSMsg(cloud, cloud_msg);
   cloud_msg.header.stamp = stamp;
   cloud_msg.header.frame_id = "map";
   publisher.publish(cloud_msg);

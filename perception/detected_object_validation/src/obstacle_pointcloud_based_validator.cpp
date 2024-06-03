@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "detected_object_validation/obstacle_pointcloud_based_validator/obstacle_pointcloud_based_validator.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <object_recognition_utils/object_recognition_utils.hpp>
 #include <tier4_autoware_utils/geometry/boost_polygon_utils.hpp>
@@ -73,7 +74,7 @@ bool Validator2D::setKdtreeInputCloud(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & input_cloud)
 {
   obstacle_pointcloud_.reset(new pcl::PointCloud<pcl::PointXY>);
-  pcl::fromROSMsg(*input_cloud, *obstacle_pointcloud_);
+  pcl::alter_fromROSMsg(*input_cloud, *obstacle_pointcloud_);
   if (obstacle_pointcloud_->empty()) {
     return false;
   }
@@ -176,7 +177,7 @@ bool Validator3D::setKdtreeInputCloud(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & input_cloud)
 {
   obstacle_pointcloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*input_cloud, *obstacle_pointcloud_);
+  pcl::alter_fromROSMsg(*input_cloud, *obstacle_pointcloud_);
   if (obstacle_pointcloud_->empty()) {
     return false;
   }

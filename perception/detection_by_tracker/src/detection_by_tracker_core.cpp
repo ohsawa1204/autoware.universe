@@ -15,6 +15,7 @@
 #include "detection_by_tracker/detection_by_tracker_core.hpp"
 
 #include "object_recognition_utils/object_recognition_utils.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <tier4_autoware_utils/geometry/geometry.hpp>
 #include <tier4_autoware_utils/math/unit_conversion.hpp>
@@ -41,7 +42,7 @@ void setClusterInObjectWithFeature(
   tier4_perception_msgs::msg::DetectedObjectWithFeature & feature_object)
 {
   sensor_msgs::msg::PointCloud2 ros_pointcloud;
-  pcl::toROSMsg(cluster, ros_pointcloud);
+  pcl::alter_toROSMsg(cluster, ros_pointcloud);
   ros_pointcloud.header = header;
   feature_object.feature.cluster = ros_pointcloud;
 }
@@ -347,7 +348,7 @@ float DetectionByTracker::optimizeUnderSegmentedObject(
 
   // convert to pcl
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_cluster(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(under_segmented_cluster, *pcl_cluster);
+  pcl::alter_fromROSMsg(under_segmented_cluster, *pcl_cluster);
 
   // iterate to find best fit divided object
   float highest_iou = 0.0;
@@ -441,7 +442,7 @@ void DetectionByTracker::mergeOverSegmentedObjects(
         continue;
       }
       pcl::PointCloud<pcl::PointXYZ> pcl_cluster;
-      pcl::fromROSMsg(initial_object.feature.cluster, pcl_cluster);
+      pcl::alter_fromROSMsg(initial_object.feature.cluster, pcl_cluster);
       pcl_merged_cluster += pcl_cluster;
     }
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "compare_map_segmentation/voxel_grid_map_loader.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 VoxelGridMapLoader::VoxelGridMapLoader(
   rclcpp::Node * node, double leaf_size, double downsize_ratio_z_axis,
@@ -43,7 +44,7 @@ void VoxelGridMapLoader::publish_downsampled_map(
   const pcl::PointCloud<pcl::PointXYZ> & downsampled_pc)
 {
   sensor_msgs::msg::PointCloud2 downsampled_map_msg;
-  pcl::toROSMsg(downsampled_pc, downsampled_map_msg);
+  pcl::alter_toROSMsg(downsampled_pc, downsampled_map_msg);
   downsampled_map_msg.header.frame_id = "map";
   downsampled_map_pub_->publish(downsampled_map_msg);
 }
@@ -258,7 +259,7 @@ void VoxelGridStaticMapLoader::onMapCallback(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr map)
 {
   pcl::PointCloud<pcl::PointXYZ> map_pcl;
-  pcl::fromROSMsg<pcl::PointXYZ>(*map, map_pcl);
+  pcl::alter_fromROSMsg<pcl::PointXYZ>(*map, map_pcl);
   const auto map_pcl_ptr = pcl::make_shared<pcl::PointCloud<pcl::PointXYZ>>(map_pcl);
   *tf_map_input_frame_ = map_pcl_ptr->header.frame_id;
   (*mutex_ptr_).lock();

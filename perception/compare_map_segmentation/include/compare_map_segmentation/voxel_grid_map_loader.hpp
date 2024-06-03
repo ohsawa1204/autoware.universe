@@ -33,6 +33,8 @@
 #include <utility>
 #include <vector>
 
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
+
 template <typename T, typename U>
 double distance3D(const T p1, const U p2)
 {
@@ -286,7 +288,7 @@ public:
     origin_y_remainder_ = std::remainder(map_cell_to_add.metadata.min_y, map_grid_size_y_);
 
     pcl::PointCloud<pcl::PointXYZ> map_cell_pc_tmp;
-    pcl::fromROSMsg(map_cell_to_add.pointcloud, map_cell_pc_tmp);
+    pcl::alter_fromROSMsg(map_cell_to_add.pointcloud, map_cell_pc_tmp);
 
     VoxelGridPointXYZ map_cell_voxel_grid_tmp;
     PointCloudPtr map_cell_downsampled_pc_ptr_tmp;

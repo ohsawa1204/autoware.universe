@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "livox_tag_filter/livox_tag_filter_node.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl_conversions/pcl_conversions.h>
 
@@ -55,7 +56,7 @@ LivoxTagFilterNode::LivoxTagFilterNode(const rclcpp::NodeOptions & node_options)
 void LivoxTagFilterNode::onPointCloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
 {
   pcl::PointCloud<LivoxPoint> points;
-  pcl::fromROSMsg(*msg, points);
+  pcl::alter_fromROSMsg(*msg, points);
 
   const auto isIgnored = [&](const LivoxPoint & p) {
     for (const auto & ignore_tag : ignore_tags_) {
@@ -78,7 +79,7 @@ void LivoxTagFilterNode::onPointCloud(const sensor_msgs::msg::PointCloud2::Const
 
   // Publish ROS message
   auto tag_filtered_msg_ptr = std::make_unique<sensor_msgs::msg::PointCloud2>();
-  pcl::toROSMsg(tag_filtered_points, *tag_filtered_msg_ptr);
+  pcl::alter_toROSMsg(tag_filtered_points, *tag_filtered_msg_ptr);
   tag_filtered_msg_ptr->header = msg->header;
 
   pub_pointcloud_->publish(std::move(tag_filtered_msg_ptr));

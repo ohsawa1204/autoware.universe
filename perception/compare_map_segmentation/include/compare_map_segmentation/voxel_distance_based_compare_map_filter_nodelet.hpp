@@ -17,6 +17,7 @@
 
 #include "pointcloud_preprocessor/filter.hpp"
 #include "voxel_grid_map_loader.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/search/pcl_search.h>
@@ -77,7 +78,7 @@ public:
     map_grid_size_y_ = map_cell_to_add.metadata.max_y - map_cell_to_add.metadata.min_y;
 
     pcl::PointCloud<pcl::PointXYZ> map_cell_pc_tmp;
-    pcl::fromROSMsg(map_cell_to_add.pointcloud, map_cell_pc_tmp);
+    pcl::alter_fromROSMsg(map_cell_to_add.pointcloud, map_cell_pc_tmp);
 
     VoxelGridPointXYZ map_cell_voxel_grid_tmp;
     PointCloudPtr map_cell_downsampled_pc_ptr_tmp;

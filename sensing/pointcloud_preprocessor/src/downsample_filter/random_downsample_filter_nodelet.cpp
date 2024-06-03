@@ -47,6 +47,7 @@
  */
 
 #include "pointcloud_preprocessor/downsample_filter/random_downsample_filter_nodelet.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <vector>
 
@@ -75,7 +76,7 @@ void RandomDownsampleFilterComponent::filter(
   }
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_input(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_output(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*input, *pcl_input);
+  pcl::alter_fromROSMsg(*input, *pcl_input);
   pcl_output->points.reserve(pcl_input->points.size());
   pcl::RandomSample<pcl::PointXYZ> filter;
   filter.setInputCloud(pcl_input);
@@ -83,7 +84,7 @@ void RandomDownsampleFilterComponent::filter(
   filter.setSample(sample_num_);
   filter.filter(*pcl_output);
 
-  pcl::toROSMsg(*pcl_output, output);
+  pcl::alter_toROSMsg(*pcl_output, output);
   output.header = input->header;
 }
 

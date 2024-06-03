@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "lidar_centerpoint_tvm/single_inference_node.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <lidar_centerpoint_tvm/centerpoint_config.hpp>
 #include <lidar_centerpoint_tvm/preprocess/pointcloud_densification.hpp>
@@ -164,7 +165,7 @@ void SingleInferenceLidarCenterPointNode::detect(
   pcl::PointCloud<pcl::PointXYZ>::Ptr pc_ptr(new pcl::PointCloud<pcl::PointXYZ>());
 
   pcl::io::loadPCDFile(pcd_path, *pc_ptr);
-  pcl::toROSMsg(*pc_ptr, msg);
+  pcl::alter_toROSMsg(*pc_ptr, msg);
   msg.header.frame_id = "lidar_frame";
 
   std::vector<Box3D> det_boxes3d;

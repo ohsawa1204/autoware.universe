@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "yabloc_image_processing/lanelet2_overlay/lanelet2_overlay.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <eigen3/Eigen/StdVector>
 #include <opencv4/opencv2/calib3d.hpp>
@@ -48,10 +49,10 @@ Lanelet2Overlay::Lanelet2Overlay()
   sub_info_ = create_subscription<CameraInfo>("~/input/camera_info", 10, cb_info);
   sub_sign_board_ = create_subscription<PointCloud2>(
     "~/input/ll2_sign_board", 10,
-    [this](const PointCloud2 & msg) -> void { pcl::fromROSMsg(msg, sign_board_); });
+    [this](const PointCloud2 & msg) -> void { pcl::alter_fromROSMsg(msg, sign_board_); });
   sub_ll2_ = create_subscription<PointCloud2>(
     "~/input/ll2_road_marking", 10,
-    [this](const PointCloud2 & msg) -> void { pcl::fromROSMsg(msg, ll2_cloud_); });
+    [this](const PointCloud2 & msg) -> void { pcl::alter_fromROSMsg(msg, ll2_cloud_); });
 
   // Publisher
   pub_vis_ = create_publisher<Marker>("~/debug/projected_marker", 10);
@@ -107,7 +108,7 @@ void Lanelet2Overlay::on_line_segments(const PointCloud2 & msg)
   std::vector<int> a;
 
   LineSegments line_segments_cloud;
-  pcl::fromROSMsg(msg, line_segments_cloud);
+  pcl::alter_fromROSMsg(msg, line_segments_cloud);
   make_vis_marker(line_segments_cloud, synched_pose.pose, stamp);
 }
 

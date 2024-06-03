@@ -15,6 +15,7 @@
 #include "obstacle_velocity_limiter/pointcloud_utils.hpp"
 
 #include "obstacle_velocity_limiter/types.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl_ros/transforms.hpp>
 
@@ -45,7 +46,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr transformPointCloud(
   PointCloud transformed_msg;
   pcl_ros::transformPointCloud(transform_matrix, pointcloud_msg, transformed_msg);
   pcl::PointCloud<pcl::PointXYZ> transformed_pointcloud;
-  pcl::fromROSMsg(transformed_msg, transformed_pointcloud);
+  pcl::alter_fromROSMsg(transformed_msg, transformed_pointcloud);
   return pcl::PointCloud<pcl::PointXYZ>::Ptr(
     new pcl::PointCloud<pcl::PointXYZ>(std::move(transformed_pointcloud)));
 }

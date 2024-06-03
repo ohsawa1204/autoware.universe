@@ -15,6 +15,7 @@
 #include "pointcloud_preprocessor/vector_map_filter/lanelet2_map_filter_nodelet.hpp"
 
 #include "pointcloud_preprocessor/filter.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl_ros/transforms.hpp>
 
@@ -232,7 +233,7 @@ void Lanelet2MapFilterComponent::pointcloudCallback(const PointCloud2ConstPtr cl
     return;
   }
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*input_transformed_cloud_ptr, *cloud);
+  pcl::alter_fromROSMsg(*input_transformed_cloud_ptr, *cloud);
   if (cloud->points.empty()) {
     return;
   }
@@ -244,7 +245,7 @@ void Lanelet2MapFilterComponent::pointcloudCallback(const PointCloud2ConstPtr cl
   const auto filtered_cloud = getLaneFilteredPointCloud(intersected_lanelets, cloud);
   // transform pointcloud to input frame
   PointCloud2Ptr output_cloud_ptr(new sensor_msgs::msg::PointCloud2);
-  pcl::toROSMsg(filtered_cloud, *output_cloud_ptr);
+  pcl::alter_toROSMsg(filtered_cloud, *output_cloud_ptr);
   PointCloud2Ptr output_transformed_cloud_ptr(new sensor_msgs::msg::PointCloud2);
   if (!transformPointCloud(
         cloud_msg->header.frame_id, output_cloud_ptr, output_transformed_cloud_ptr.get())) {

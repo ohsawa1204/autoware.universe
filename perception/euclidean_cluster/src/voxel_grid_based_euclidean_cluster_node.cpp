@@ -15,6 +15,7 @@
 #include "voxel_grid_based_euclidean_cluster_node.hpp"
 
 #include "euclidean_cluster/utils.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <vector>
 
@@ -61,7 +62,7 @@ void VoxelGridBasedEuclideanClusterNode::onPointCloud(
     RCLCPP_WARN_STREAM_THROTTLE(
       this->get_logger(), *this->get_clock(), 1000, "Empty sensor points!");
   } else {
-    pcl::fromROSMsg(*input_msg, *raw_pointcloud_ptr);
+    pcl::alter_fromROSMsg(*input_msg, *raw_pointcloud_ptr);
   }
 
   // clustering

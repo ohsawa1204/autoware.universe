@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "ground_segmentation/ransac_ground_filter_nodelet.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl_ros/transforms.hpp>
 
@@ -148,7 +149,7 @@ void RANSACGroundFilterComponent::publishDebugMessage(
   }
   sensor_msgs::msg::PointCloud2::SharedPtr ground_cloud_msg_ptr(new sensor_msgs::msg::PointCloud2);
   ground_cloud_msg_ptr->header = header;
-  pcl::toROSMsg(*colored_ground_ptr, *ground_cloud_msg_ptr);
+  pcl::alter_toROSMsg(*colored_ground_ptr, *ground_cloud_msg_ptr);
   ground_cloud_msg_ptr->header.frame_id = base_frame_;
   debug_pose_array_pub_->publish(debug_pose_array);
   debug_ground_cloud_pub_->publish(*ground_cloud_msg_ptr);
@@ -240,7 +241,7 @@ void RANSACGroundFilterComponent::filter(
     return;
   }
   pcl::PointCloud<PointType>::Ptr current_sensor_cloud_ptr(new pcl::PointCloud<PointType>);
-  pcl::fromROSMsg(*input_transformed_ptr, *current_sensor_cloud_ptr);
+  pcl::alter_fromROSMsg(*input_transformed_ptr, *current_sensor_cloud_ptr);
 
   // downsample pointcloud to reduce ransac calculation cost
   pcl::PointCloud<PointType>::Ptr downsampled_cloud(new pcl::PointCloud<PointType>);
@@ -295,7 +296,7 @@ void RANSACGroundFilterComponent::filter(
 
   sensor_msgs::msg::PointCloud2::SharedPtr no_ground_cloud_msg_ptr(
     new sensor_msgs::msg::PointCloud2);
-  pcl::toROSMsg(*no_ground_cloud_ptr, *no_ground_cloud_msg_ptr);
+  pcl::alter_toROSMsg(*no_ground_cloud_ptr, *no_ground_cloud_msg_ptr);
   no_ground_cloud_msg_ptr->header = input->header;
   sensor_msgs::msg::PointCloud2::SharedPtr no_ground_cloud_transformed_msg_ptr(
     new sensor_msgs::msg::PointCloud2);

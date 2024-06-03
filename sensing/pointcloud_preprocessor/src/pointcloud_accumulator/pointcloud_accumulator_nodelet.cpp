@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "pointcloud_preprocessor/pointcloud_accumulator/pointcloud_accumulator_nodelet.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <vector>
 
@@ -48,10 +49,10 @@ void PointcloudAccumulatorComponent::filter(
     if (accumulation_time_sec_ < (last_time - pointcloud_buffer_.at(i)->header.stamp).seconds()) {
       break;
     }
-    pcl::fromROSMsg(*pointcloud_buffer_.at(i), pcl_input);
+    pcl::alter_fromROSMsg(*pointcloud_buffer_.at(i), pcl_input);
     pcl_output += pcl_input;
   }
-  pcl::toROSMsg(pcl_output, output);
+  pcl::alter_toROSMsg(pcl_output, output);
   output.header = input->header;
 }
 

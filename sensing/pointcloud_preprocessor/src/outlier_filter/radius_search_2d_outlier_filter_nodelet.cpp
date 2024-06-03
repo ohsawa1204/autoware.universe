@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "pointcloud_preprocessor/outlier_filter/radius_search_2d_outlier_filter_nodelet.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/search/kdtree.h>
@@ -47,7 +48,7 @@ void RadiusSearch2DOutlierFilterComponent::filter(
     RCLCPP_WARN(get_logger(), "Indices are not supported and will be ignored");
   }
   pcl::PointCloud<pcl::PointXYZ>::Ptr xyz_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*input, *xyz_cloud);
+  pcl::alter_fromROSMsg(*input, *xyz_cloud);
 
   pcl::PointCloud<pcl::PointXY>::Ptr xy_cloud(new pcl::PointCloud<pcl::PointXY>);
   xy_cloud->points.resize(xyz_cloud->points.size());
@@ -66,7 +67,7 @@ void RadiusSearch2DOutlierFilterComponent::filter(
       pcl_output->points.push_back(xyz_cloud->points.at(i));
     }
   }
-  pcl::toROSMsg(*pcl_output, output);
+  pcl::alter_toROSMsg(*pcl_output, output);
   output.header = input->header;
 }
 

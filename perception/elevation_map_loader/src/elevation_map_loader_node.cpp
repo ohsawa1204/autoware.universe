@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "elevation_map_loader/elevation_map_loader_node.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <grid_map_core/GridMap.hpp>
 #include <grid_map_cv/InpaintFilter.hpp>
@@ -167,7 +168,7 @@ void ElevationMapLoaderNode::publish()
     pcl::PointCloud<pcl::PointXYZ>::Ptr elevation_map_cloud_ptr =
       createPointcloudFromElevationMap();
     sensor_msgs::msg::PointCloud2 elevation_map_cloud_msg;
-    pcl::toROSMsg(*elevation_map_cloud_ptr, elevation_map_cloud_msg);
+    pcl::alter_toROSMsg(*elevation_map_cloud_ptr, elevation_map_cloud_msg);
     pub_elevation_map_cloud_->publish(elevation_map_cloud_msg);
   }
   is_elevation_map_published_ = true;
@@ -204,7 +205,7 @@ void ElevationMapLoaderNode::onPointcloudMap(
   RCLCPP_INFO(this->get_logger(), "subscribe pointcloud_map");
   {
     pcl::PointCloud<pcl::PointXYZ> map_pcl;
-    pcl::fromROSMsg<pcl::PointXYZ>(*pointcloud_map, map_pcl);
+    pcl::alter_fromROSMsg<pcl::PointXYZ>(*pointcloud_map, map_pcl);
     data_manager_.map_pcl_ptr_ = pcl::make_shared<pcl::PointCloud<pcl::PointXYZ>>(map_pcl);
   }
   if (data_manager_.isInitialized()) {
@@ -287,7 +288,7 @@ void ElevationMapLoaderNode::receiveMap()
   }
   RCLCPP_DEBUG(this->get_logger(), "finish receiving");
   pcl::PointCloud<pcl::PointXYZ> map_pcl;
-  pcl::fromROSMsg<pcl::PointXYZ>(pointcloud_map, map_pcl);
+  pcl::alter_fromROSMsg<pcl::PointXYZ>(pointcloud_map, map_pcl);
   data_manager_.map_pcl_ptr_ = pcl::make_shared<pcl::PointCloud<pcl::PointXYZ>>(map_pcl);
 }
 

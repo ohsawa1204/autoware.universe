@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
+
 // cspell: ignore bcnn
 using model_zoo::perception::lidar_obstacle_detection::baidu_cnn::onnx_bcnn::config;
 
@@ -135,7 +137,7 @@ void ApolloLidarSegmentation::transformCloud(
     transformed_cloud = input;
   } else {
     pcl::PointCloud<pcl::PointXYZI> in_cluster, transformed_cloud_cluster;
-    pcl::fromROSMsg(input, in_cluster);
+    pcl::alter_fromROSMsg(input, in_cluster);
 
     // transform pointcloud to target_frame
     if (target_frame_ != input.header.frame_id) {
@@ -162,7 +164,7 @@ void ApolloLidarSegmentation::transformCloud(
         transformed_cloud_cluster, transformed_cloud_cluster, z_up_transform);
     }
 
-    pcl::toROSMsg(transformed_cloud_cluster, transformed_cloud);
+    pcl::alter_toROSMsg(transformed_cloud_cluster, transformed_cloud);
   }
 }
 
@@ -173,7 +175,7 @@ std::shared_ptr<const DetectedObjectsWithFeature> ApolloLidarSegmentation::detec
   sensor_msgs::msg::PointCloud2 transformed_cloud;
   ApolloLidarSegmentation::transformCloud(input, transformed_cloud, z_offset_);
   // convert from ros to pcl
-  pcl::fromROSMsg(transformed_cloud, *pcl_pointcloud_ptr_);
+  pcl::alter_fromROSMsg(transformed_cloud, *pcl_pointcloud_ptr_);
 
   // inference pipeline
   auto output = pipeline->schedule(pcl_pointcloud_ptr_);

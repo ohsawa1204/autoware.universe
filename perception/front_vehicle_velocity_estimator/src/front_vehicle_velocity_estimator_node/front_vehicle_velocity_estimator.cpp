@@ -15,6 +15,7 @@
 #include "front_vehicle_velocity_estimator/front_vehicle_velocity_estimator.hpp"
 
 #include "tier4_autoware_utils/geometry/geometry.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <boost/geometry.hpp>
 
@@ -93,7 +94,7 @@ FrontVehicleVelocityEstimator::Output FrontVehicleVelocityEstimator::update(
   // Set nearest_neighbor_pointcloud output for debug
   pcl::PointCloud<pcl::PointXYZ> output_pointcloud;
   output_pointcloud.points.push_back(nearest_neighbor_point);
-  pcl::toROSMsg(output_pointcloud, output_.nearest_neighbor_pointcloud);
+  pcl::alter_toROSMsg(output_pointcloud, output_.nearest_neighbor_pointcloud);
   output_.nearest_neighbor_pointcloud.header = input.pointcloud->header;
 
   return output_;
@@ -170,7 +171,7 @@ pcl::PointXYZ FrontVehicleVelocityEstimator::getNearestNeighborPoint(
   const DetectedObject & object, PointCloud2::ConstSharedPtr pointcloud, const Point2d & front_size)
 {
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_msg(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*pointcloud, *pcl_msg);
+  pcl::alter_fromROSMsg(*pointcloud, *pcl_msg);
 
   // Initialize
   pcl::PointXYZ nearest_neighbor_point;

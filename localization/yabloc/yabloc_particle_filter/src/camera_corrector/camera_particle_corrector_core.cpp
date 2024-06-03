@@ -14,6 +14,7 @@
 
 #include "yabloc_particle_filter/camera_corrector/camera_particle_corrector.hpp"
 #include "yabloc_particle_filter/camera_corrector/logit.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <opencv4/opencv2/imgproc.hpp>
 #include <tier4_autoware_utils/math/trigonometry.hpp>
@@ -88,7 +89,7 @@ void CameraParticleCorrector::on_bounding_box(const PointCloud2 & msg)
 {
   // NOTE: Under construction
   pcl::PointCloud<pcl::PointXYZL> ll2_bounding_box;
-  pcl::fromROSMsg(msg, ll2_bounding_box);
+  pcl::alter_fromROSMsg(msg, ll2_bounding_box);
   cost_map_.set_bounding_box(ll2_bounding_box);
   RCLCPP_INFO_STREAM(get_logger(), "Set bounding box into cost map");
 }
@@ -97,7 +98,7 @@ std::pair<CameraParticleCorrector::LineSegments, CameraParticleCorrector::LineSe
 CameraParticleCorrector::split_line_segments(const PointCloud2 & msg)
 {
   LineSegments all_line_segments_cloud;
-  pcl::fromROSMsg(msg, all_line_segments_cloud);
+  pcl::alter_fromROSMsg(msg, all_line_segments_cloud);
   LineSegments reliable_cloud, iffy_cloud;
   {
     for (const auto & p : all_line_segments_cloud) {
@@ -249,7 +250,7 @@ void CameraParticleCorrector::on_timer()
 void CameraParticleCorrector::on_ll2(const PointCloud2 & ll2_msg)
 {
   pcl::PointCloud<pcl::PointNormal> ll2_cloud;
-  pcl::fromROSMsg(ll2_msg, ll2_cloud);
+  pcl::alter_fromROSMsg(ll2_msg, ll2_cloud);
   cost_map_.set_cloud(ll2_cloud);
   RCLCPP_INFO_STREAM(get_logger(), "Set LL2 cloud into Hierarchical cost map");
 }

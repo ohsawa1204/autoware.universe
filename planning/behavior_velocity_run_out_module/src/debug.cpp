@@ -15,6 +15,7 @@
 #include "debug.hpp"
 
 #include "scene.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <motion_utils/marker/virtual_wall_marker_creator.hpp>
 #include <tier4_autoware_utils/geometry/geometry.hpp>
@@ -309,7 +310,7 @@ void RunOutDebug::publishFilteredPointCloud(
   const pcl::PointCloud<pcl::PointXYZ> & pointcloud, const std_msgs::msg::Header header)
 {
   PointCloud2 pc;
-  pcl::toROSMsg(pointcloud, pc);
+  pcl::alter_toROSMsg(pointcloud, pc);
   pc.header = header;
 
   pub_debug_pointcloud_->publish(pc);
@@ -323,7 +324,7 @@ void RunOutDebug::publishFilteredPointCloud(const PointCloud2 & pointcloud)
 void RunOutDebug::publishEmptyPointCloud()
 {
   PointCloud2 pc;
-  pcl::toROSMsg(pcl::PointCloud<pcl::PointXYZ>(), pc);
+  pcl::alter_toROSMsg(pcl::PointCloud<pcl::PointXYZ>(), pc);
   // set arbitrary frame id to avoid warning
   pc.header.frame_id = "map";
   pc.header.stamp = node_.now();

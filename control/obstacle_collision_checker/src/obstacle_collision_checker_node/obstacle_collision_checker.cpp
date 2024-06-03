@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "obstacle_collision_checker/obstacle_collision_checker.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl_ros/transforms.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -47,7 +48,7 @@ pcl::PointCloud<pcl::PointXYZ> getTransformedPointCloud(
   pcl_ros::transformPointCloud(transform_matrix, pointcloud_msg, transformed_msg);
 
   pcl::PointCloud<pcl::PointXYZ> transformed_pointcloud;
-  pcl::fromROSMsg(transformed_msg, transformed_pointcloud);
+  pcl::alter_fromROSMsg(transformed_msg, transformed_pointcloud);
 
   return transformed_pointcloud;
 }

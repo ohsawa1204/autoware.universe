@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "ndt_scan_matcher/map_update_module.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 template <typename T, typename U>
 double norm_xy(const T p1, const U p2)
@@ -150,7 +151,7 @@ void MapUpdateModule::update_ndt(
   // Add pcd
   for (const auto & map_to_add : maps_to_add) {
     pcl::shared_ptr<pcl::PointCloud<PointTarget>> map_points_ptr(new pcl::PointCloud<PointTarget>);
-    pcl::fromROSMsg(map_to_add.pointcloud, *map_points_ptr);
+    pcl::alter_fromROSMsg(map_to_add.pointcloud, *map_points_ptr);
     backup_ndt.addTarget(map_points_ptr, map_to_add.cell_id);
   }
 
@@ -183,7 +184,7 @@ void MapUpdateModule::publish_partial_pcd_map()
   pcl::PointCloud<PointTarget> map_pcl = ndt_ptr_->getVoxelPCD();
 
   sensor_msgs::msg::PointCloud2 map_msg;
-  pcl::toROSMsg(map_pcl, map_msg);
+  pcl::alter_toROSMsg(map_pcl, map_msg);
   map_msg.header.frame_id = "map";
 
   loaded_pcd_pub_->publish(map_msg);

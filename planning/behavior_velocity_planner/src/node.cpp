@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "node.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <behavior_velocity_planner_common/utilization/path_utilization.hpp>
 #include <lanelet2_extension/utility/message_conversion.hpp>
@@ -266,7 +267,7 @@ void BehaviorVelocityPlannerNode::onNoGroundPointCloud(
   }
 
   pcl::PointCloud<pcl::PointXYZ> pc;
-  pcl::fromROSMsg(*msg, pc);
+  pcl::alter_fromROSMsg(*msg, pc);
 
   Eigen::Affine3f affine = tf2::transformToEigen(transform.transform).cast<float>();
   pcl::PointCloud<pcl::PointXYZ>::Ptr pc_transformed(new pcl::PointCloud<pcl::PointXYZ>);

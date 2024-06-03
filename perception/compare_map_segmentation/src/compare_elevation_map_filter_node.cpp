@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "compare_map_segmentation/compare_elevation_map_filter_node.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <grid_map_core/GridMap.hpp>
 #include <grid_map_cv/GridMapCvConverter.hpp>
@@ -76,7 +77,7 @@ void CompareElevationMapFilterComponent::filter(
 
   output_frame = elevation_map_.getFrameId();
   elevation_map_.setTimestamp(input->header.stamp.nanosec);
-  pcl::fromROSMsg(*input, *pcl_input);
+  pcl::alter_fromROSMsg(*input, *pcl_input);
   pcl_output->points.reserve(pcl_input->points.size());
   for (const auto & point : pcl_input->points) {
     if (elevation_map_.isInside(grid_map::Position(point.x, point.y))) {
@@ -90,7 +91,7 @@ void CompareElevationMapFilterComponent::filter(
     }
   }
 
-  pcl::toROSMsg(*pcl_output, output);
+  pcl::alter_toROSMsg(*pcl_output, output);
   output.header.stamp = input->header.stamp;
   output.header.frame_id = output_frame;
 }

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "map_tf_generator/uniform_random.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -60,7 +61,7 @@ private:
     srand(3939);
 
     PointCloud clouds;
-    pcl::fromROSMsg<pcl::PointXYZ>(*clouds_ros, clouds);
+    pcl::alter_fromROSMsg<pcl::PointXYZ>(*clouds_ros, clouds);
 
     const std::vector<size_t> indices = UniformRandom(clouds.size(), N_SAMPLES);
     double coordinate[3] = {0, 0, 0};

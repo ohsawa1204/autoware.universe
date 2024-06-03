@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "pointcloud_preprocessor/outlier_filter/dual_return_outlier_filter_nodelet.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include "autoware_point_types/types.hpp"
 
@@ -119,7 +120,7 @@ void DualReturnOutlierFilterComponent::filter(
     RCLCPP_WARN(get_logger(), "Indices are not supported and will be ignored");
   }
   pcl::PointCloud<PointXYZIRADRT>::Ptr pcl_input(new pcl::PointCloud<PointXYZIRADRT>);
-  pcl::fromROSMsg(*input, *pcl_input);
+  pcl::alter_fromROSMsg(*input, *pcl_input);
 
   uint32_t vertical_bins = vertical_bins_;
   uint32_t horizontal_bins = 36;
@@ -339,12 +340,12 @@ void DualReturnOutlierFilterComponent::filter(
 
   // Publish noise points
   sensor_msgs::msg::PointCloud2 noise_output_msg;
-  pcl::toROSMsg(*noise_output, noise_output_msg);
+  pcl::alter_toROSMsg(*noise_output, noise_output_msg);
   noise_output_msg.header = input->header;
   noise_cloud_pub_->publish(noise_output_msg);
 
   // Publish filtered pointcloud
-  pcl::toROSMsg(*pcl_output, output);
+  pcl::alter_toROSMsg(*pcl_output, output);
   output.header = input->header;
 }
 

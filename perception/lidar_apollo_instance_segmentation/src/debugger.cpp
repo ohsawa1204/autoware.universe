@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "lidar_apollo_instance_segmentation/debugger.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <autoware_auto_perception_msgs/msg/object_classification.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -36,7 +37,7 @@ void Debugger::publishColoredPointCloud(
   pcl::PointCloud<pcl::PointXYZRGB> colored_pointcloud;
   for (size_t i = 0; i < input.feature_objects.size(); i++) {
     pcl::PointCloud<pcl::PointXYZI> object_pointcloud;
-    pcl::fromROSMsg(input.feature_objects.at(i).feature.cluster, object_pointcloud);
+    pcl::alter_fromROSMsg(input.feature_objects.at(i).feature.cluster, object_pointcloud);
 
     int red = 0, green = 0, blue = 0;
     switch (input.feature_objects.at(i).object.classification.front().label) {
@@ -96,7 +97,7 @@ void Debugger::publishColoredPointCloud(
     }
   }
   sensor_msgs::msg::PointCloud2 output_msg;
-  pcl::toROSMsg(colored_pointcloud, output_msg);
+  pcl::alter_toROSMsg(colored_pointcloud, output_msg);
   output_msg.header = input.header;
   instance_pointcloud_pub_->publish(output_msg);
 }

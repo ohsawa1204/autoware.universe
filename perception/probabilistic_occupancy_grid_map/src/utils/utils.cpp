@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "utils/utils.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <tier4_autoware_utils/geometry/geometry.hpp>
 
@@ -83,7 +84,7 @@ bool cropPointcloudByHeight(
   }
 
   // Convert to ros msg
-  pcl::toROSMsg(*pcl_output, output);
+  pcl::alter_toROSMsg(*pcl_output, output);
   output.header = trans_input.header;
   return true;
 }
@@ -176,7 +177,7 @@ bool extractCommonPointCloud(
   for (auto p : v_output_obstacle_pc) {
     pcl_output->push_back(pcl::PointXYZ(p.x, p.y, p.z));
   }
-  pcl::toROSMsg(*pcl_output, output_obstacle_pc);
+  pcl::alter_toROSMsg(*pcl_output, output_obstacle_pc);
   output_obstacle_pc.header = obstacle_pc.header;
 
   return true;

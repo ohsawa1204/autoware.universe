@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "pointcloud_preprocessor/utility/utilities.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <autoware_point_types/types.hpp>
 
@@ -66,7 +67,7 @@ void remove_polygon_cgal_from_cloud(
     }
   }
 
-  pcl::toROSMsg(pcl_output, cloud_out);
+  pcl::alter_toROSMsg(pcl_output, cloud_out);
   cloud_out.header = cloud_in.header;
 }
 
@@ -109,7 +110,7 @@ void remove_polygon_cgal_from_cloud(
     filtered_cloud.emplace_back(p);
   }
 
-  pcl::toROSMsg(filtered_cloud, cloud_out);
+  pcl::alter_toROSMsg(filtered_cloud, cloud_out);
   cloud_out.header = cloud_in.header;
 }
 

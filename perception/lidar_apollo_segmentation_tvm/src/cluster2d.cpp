@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <lidar_apollo_segmentation_tvm/cluster2d.hpp>
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <autoware_auto_perception_msgs/msg/object_classification.hpp>
 #include <geometry_msgs/msg/point32.hpp>
@@ -300,7 +301,7 @@ tier4_perception_msgs::msg::DetectedObjectWithFeature Cluster2D::obstacleToObjec
     }
   }
   sensor_msgs::msg::PointCloud2 ros_pc;
-  pcl::toROSMsg(cluster, ros_pc);
+  pcl::alter_toROSMsg(cluster, ros_pc);
   resulting_object.feature.cluster = ros_pc;
 
   // position

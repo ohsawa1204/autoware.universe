@@ -15,6 +15,7 @@
 #include "pointcloud_preprocessor/blockage_diag/blockage_diag_nodelet.hpp"
 
 #include "autoware_point_types/types.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <algorithm>
 #include <numeric>
@@ -176,7 +177,7 @@ void BlockageDiagComponent::filter(
   ideal_horizontal_bins = static_cast<int>(
     (angle_range_deg_[1] + compensate_angle - angle_range_deg_[0]) / horizontal_resolution_);
   pcl::PointCloud<PointXYZIRADRT>::Ptr pcl_input(new pcl::PointCloud<PointXYZIRADRT>);
-  pcl::fromROSMsg(*input, *pcl_input);
+  pcl::alter_fromROSMsg(*input, *pcl_input);
   cv::Mat full_size_depth_map(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_16UC1, cv::Scalar(0));
   cv::Mat lidar_depth_map_8u(
@@ -404,7 +405,7 @@ void BlockageDiagComponent::filter(
     blockage_mask_pub_.publish(blockage_mask_msg);
   }
 
-  pcl::toROSMsg(*pcl_input, output);
+  pcl::alter_toROSMsg(*pcl_input, output);
   output.header = input->header;
 }
 rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(

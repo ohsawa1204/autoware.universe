@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "dynamic_obstacle.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <motion_utils/trajectory/trajectory.hpp>
 #include <tier4_autoware_utils/geometry/geometry.hpp>
@@ -97,7 +98,7 @@ pcl::PointCloud<pcl::PointXYZ> applyVoxelGridFilter(
   }
 
   pcl::PointCloud<pcl::PointXYZ> input_points_pcl;
-  pcl::fromROSMsg(input_points, input_points_pcl);
+  pcl::alter_fromROSMsg(input_points, input_points_pcl);
 
   auto no_height_points = input_points_pcl;
   for (auto & p : no_height_points) {
@@ -267,7 +268,7 @@ pcl::PointCloud<pcl::PointXYZ> transformPointCloud(
   }
 
   pcl::PointCloud<pcl::PointXYZ> pointcloud_pcl;
-  pcl::fromROSMsg(input_pointcloud, pointcloud_pcl);
+  pcl::alter_fromROSMsg(input_pointcloud, pointcloud_pcl);
   pcl::PointCloud<pcl::PointXYZ> pointcloud_pcl_transformed;
   tier4_autoware_utils::transformPointCloud(
     pointcloud_pcl, pointcloud_pcl_transformed, transform_matrix);
@@ -281,8 +282,8 @@ PointCloud2 concatPointCloud(
   // convert to ROS pointcloud to concatenate points
   PointCloud2 cloud1_ros;
   PointCloud2 cloud2_ros;
-  pcl::toROSMsg(cloud1, cloud1_ros);
-  pcl::toROSMsg(cloud2, cloud2_ros);
+  pcl::alter_toROSMsg(cloud1, cloud1_ros);
+  pcl::alter_toROSMsg(cloud2, cloud2_ros);
 
   // concatenate two clouds
   PointCloud2 concat_points;

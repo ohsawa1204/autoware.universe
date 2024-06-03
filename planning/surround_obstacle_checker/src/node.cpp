@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "surround_obstacle_checker/node.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <autoware_auto_tf2/tf2_autoware_auto_msgs.hpp>
 #include <tier4_autoware_utils/geometry/geometry.hpp>
@@ -449,7 +450,7 @@ std::optional<Obstacle> SurroundObstacleCheckerNode::getNearestObstacleByPointCl
   Eigen::Affine3f isometry =
     tf2::transformToEigen(transform_stamped.value().transform).cast<float>();
   pcl::PointCloud<pcl::PointXYZ> transformed_pointcloud;
-  pcl::fromROSMsg(*pointcloud_ptr_, transformed_pointcloud);
+  pcl::alter_fromROSMsg(*pointcloud_ptr_, transformed_pointcloud);
   tier4_autoware_utils::transformPointCloud(
     transformed_pointcloud, transformed_pointcloud, isometry);
 

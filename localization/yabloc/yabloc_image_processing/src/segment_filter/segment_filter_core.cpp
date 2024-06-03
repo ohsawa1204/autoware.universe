@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "yabloc_image_processing/segment_filter/segment_filter.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <opencv4/opencv2/core.hpp>
 #include <opencv4/opencv2/imgproc.hpp>
@@ -97,7 +98,7 @@ void SegmentFilter::execute(const PointCloud2 & line_segments_msg, const Image &
   pcl::PointCloud<pcl::PointNormal>::Ptr line_segments_cloud{
     new pcl::PointCloud<pcl::PointNormal>()};
   cv::Mat mask_image = common::decompress_to_cv_mat(segment_msg);
-  pcl::fromROSMsg(line_segments_msg, *line_segments_cloud);
+  pcl::alter_fromROSMsg(line_segments_msg, *line_segments_cloud);
 
   const std::set<int> indices = filter_by_mask(mask_image, *line_segments_cloud);
 

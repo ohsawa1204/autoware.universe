@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "radar_scan_to_pointcloud2/radar_scan_to_pointcloud2_node.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl/pcl_base.h>
 #include <pcl/point_cloud.h>
@@ -63,7 +64,7 @@ sensor_msgs::msg::PointCloud2 toAmplitudePointcloud2(const radar_msgs::msg::Rada
 {
   sensor_msgs::msg::PointCloud2 pointcloud_msg;
   auto pcl_pointcloud = toAmplitudePCL(radar_scan);
-  pcl::toROSMsg(pcl_pointcloud, pointcloud_msg);
+  pcl::alter_toROSMsg(pcl_pointcloud, pointcloud_msg);
   pointcloud_msg.header = radar_scan.header;
   return pointcloud_msg;
 }
@@ -81,7 +82,7 @@ sensor_msgs::msg::PointCloud2 toDopplerPointcloud2(const radar_msgs::msg::RadarS
 {
   sensor_msgs::msg::PointCloud2 pointcloud_msg;
   auto pcl_pointcloud = toDopplerPCL(radar_scan);
-  pcl::toROSMsg(pcl_pointcloud, pointcloud_msg);
+  pcl::alter_toROSMsg(pcl_pointcloud, pointcloud_msg);
   pointcloud_msg.header = radar_scan.header;
   return pointcloud_msg;
 }

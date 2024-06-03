@@ -30,6 +30,7 @@
  */
 
 #include "ground_segmentation/ray_ground_filter_nodelet.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <string>
 #include <vector>
@@ -280,7 +281,7 @@ void RayGroundFilterComponent::filter(
   std::scoped_lock lock(mutex_);
 
   pcl::PointCloud<PointType_>::Ptr current_sensor_cloud_ptr(new pcl::PointCloud<PointType_>);
-  pcl::fromROSMsg(*input, *current_sensor_cloud_ptr);
+  pcl::alter_fromROSMsg(*input, *current_sensor_cloud_ptr);
 
   PointCloudXYZRTColor organized_points;
   std::vector<pcl::PointIndices> radial_division_indices;
@@ -304,7 +305,7 @@ void RayGroundFilterComponent::filter(
 
   sensor_msgs::msg::PointCloud2::SharedPtr no_ground_cloud_msg_ptr(
     new sensor_msgs::msg::PointCloud2);
-  pcl::toROSMsg(*no_ground_cloud_ptr, *no_ground_cloud_msg_ptr);
+  pcl::alter_toROSMsg(*no_ground_cloud_ptr, *no_ground_cloud_msg_ptr);
   no_ground_cloud_msg_ptr->header = input->header;
 
   output = *no_ground_cloud_msg_ptr;

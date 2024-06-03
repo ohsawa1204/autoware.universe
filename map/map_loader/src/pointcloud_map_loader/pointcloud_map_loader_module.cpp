@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "pointcloud_map_loader_module.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include "utils.hpp"
 
@@ -26,14 +27,14 @@ sensor_msgs::msg::PointCloud2 downsample(
 {
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_input(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_output(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(msg_input, *pcl_input);
+  pcl::alter_fromROSMsg(msg_input, *pcl_input);
   pcl::VoxelGrid<pcl::PointXYZ> filter;
   filter.setInputCloud(pcl_input);
   filter.setLeafSize(leaf_size, leaf_size, leaf_size);
   filter.filter(*pcl_output);
 
   sensor_msgs::msg::PointCloud2 msg_output;
-  pcl::toROSMsg(*pcl_output, msg_output);
+  pcl::alter_toROSMsg(*pcl_output, msg_output);
   msg_output.header = msg_input.header;
   return msg_output;
 }

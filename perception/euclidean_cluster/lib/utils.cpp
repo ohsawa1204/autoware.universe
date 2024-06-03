@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "euclidean_cluster/utils.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <autoware_auto_perception_msgs/msg/object_classification.hpp>
 #include <sensor_msgs/msg/point_field.hpp>
@@ -50,7 +51,7 @@ void convertPointCloudClusters2Msg(
   for (const auto & cluster : clusters) {
     sensor_msgs::msg::PointCloud2 ros_pointcloud;
     tier4_perception_msgs::msg::DetectedObjectWithFeature feature_object;
-    pcl::toROSMsg(cluster, ros_pointcloud);
+    pcl::alter_toROSMsg(cluster, ros_pointcloud);
     ros_pointcloud.header = header;
     feature_object.feature.cluster = ros_pointcloud;
     feature_object.object.kinematics.pose_with_covariance.pose.position =

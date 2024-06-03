@@ -22,6 +22,7 @@
 #define EIGEN_MPL2_ONLY
 #include "obstacle_stop_planner/node.hpp"
 #include "obstacle_stop_planner/planner_utils.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -274,15 +275,15 @@ void ObstacleStopPlannerNode::onPointCloud(const PointCloud2::ConstSharedPtr inp
   PointCloud::Ptr pointcloud_ptr(new PointCloud);
   PointCloud::Ptr no_height_filtered_pointcloud_ptr(new PointCloud);
 
-  pcl::fromROSMsg(*input_msg, *pointcloud_ptr);
+  pcl::alter_fromROSMsg(*input_msg, *pointcloud_ptr);
   if (!node_param_.enable_z_axis_obstacle_filtering) {
     filter.setInputCloud(pointcloud_ptr);
     filter.setLeafSize(
       node_param_.voxel_grid_x, node_param_.voxel_grid_y, node_param_.voxel_grid_z);
     filter.filter(*no_height_filtered_pointcloud_ptr);
-    pcl::toROSMsg(*no_height_filtered_pointcloud_ptr, *obstacle_ros_pointcloud_ptr_);
+    pcl::alter_toROSMsg(*no_height_filtered_pointcloud_ptr, *obstacle_ros_pointcloud_ptr_);
   } else {
-    pcl::toROSMsg(*pointcloud_ptr, *obstacle_ros_pointcloud_ptr_);
+    pcl::alter_toROSMsg(*pointcloud_ptr, *obstacle_ros_pointcloud_ptr_);
   }
 
   obstacle_ros_pointcloud_ptr_->header = input_msg->header;
@@ -566,7 +567,7 @@ void ObstacleStopPlannerNode::searchObstacle(
           (pub_collision_pointcloud_debug_->get_subscription_count() +
            pub_collision_pointcloud_debug_->get_intra_process_subscription_count()) > 0) {
           auto obstacle_ros_pointcloud_debug_ptr = std::make_shared<PointCloud2>();
-          pcl::toROSMsg(*collision_pointcloud_ptr, *obstacle_ros_pointcloud_debug_ptr);
+          pcl::alter_toROSMsg(*collision_pointcloud_ptr, *obstacle_ros_pointcloud_debug_ptr);
           obstacle_ros_pointcloud_debug_ptr->header.frame_id = trajectory_header.frame_id;
           pub_collision_pointcloud_debug_->publish(*obstacle_ros_pointcloud_debug_ptr);
         }
@@ -1486,7 +1487,7 @@ bool ObstacleStopPlannerNode::searchPointcloudNearTrajectory(
     tf2::transformToEigen(transform_stamped.transform).matrix().cast<float>();
   pcl_ros::transformPointCloud(affine_matrix, *input_points_ptr, transformed_points);
   PointCloud::Ptr transformed_points_ptr(new PointCloud);
-  pcl::fromROSMsg(transformed_points, *transformed_points_ptr);
+  pcl::alter_fromROSMsg(transformed_points, *transformed_points_ptr);
 
   output_points_ptr->header = transformed_points_ptr->header;
 

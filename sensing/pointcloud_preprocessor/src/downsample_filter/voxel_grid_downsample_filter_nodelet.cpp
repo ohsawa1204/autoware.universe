@@ -51,6 +51,7 @@
 #include "pointcloud_preprocessor/downsample_filter/voxel_grid_downsample_filter_nodelet.hpp"
 
 #include "pointcloud_preprocessor/downsample_filter/faster_voxel_grid_downsample_filter.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/search/kdtree.h>
@@ -87,7 +88,7 @@ void VoxelGridDownsampleFilterComponent::filter(
   }
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_input(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_output(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*input, *pcl_input);
+  pcl::alter_fromROSMsg(*input, *pcl_input);
   pcl_output->points.reserve(pcl_input->points.size());
   pcl::VoxelGrid<pcl::PointXYZ> filter;
   filter.setInputCloud(pcl_input);
@@ -95,7 +96,7 @@ void VoxelGridDownsampleFilterComponent::filter(
   filter.setLeafSize(voxel_size_x_, voxel_size_y_, voxel_size_z_);
   filter.filter(*pcl_output);
 
-  pcl::toROSMsg(*pcl_output, output);
+  pcl::alter_toROSMsg(*pcl_output, output);
   output.header = input->header;
 }
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "occupancy_grid_map_outlier_filter/occupancy_grid_map_outlier_filter_nodelet.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl_ros/transforms.hpp>
 #include <tier4_autoware_utils/geometry/geometry.hpp>
@@ -311,7 +312,7 @@ void OccupancyGridMapOutlierFilterComponent::onOccupancyGridMapAndPointCloud2(
   PclPointCloud low_confidence_pc{};
   PclPointCloud out_ogm_pc{};
   PclPointCloud ogm_frame_behind_pc;
-  pcl::fromROSMsg(ogm_frame_input_behind_pc, ogm_frame_behind_pc);
+  pcl::alter_fromROSMsg(ogm_frame_input_behind_pc, ogm_frame_behind_pc);
   filterByOccupancyGridMap(
     *input_ogm, ogm_frame_pc, high_confidence_pc, low_confidence_pc, out_ogm_pc);
   // Apply Radius search 2d filter for low confidence pointcloud
@@ -333,7 +334,7 @@ void OccupancyGridMapOutlierFilterComponent::onOccupancyGridMapAndPointCloud2(
   {
     PointCloud2 ogm_frame_filtered_pc{};
     auto base_link_frame_filtered_pc_ptr = std::make_unique<PointCloud2>();
-    pcl::toROSMsg(concat_pc, ogm_frame_filtered_pc);
+    pcl::alter_toROSMsg(concat_pc, ogm_frame_filtered_pc);
     ogm_frame_filtered_pc.header = ogm_frame_pc.header;
     if (!transformPointcloud(
           ogm_frame_filtered_pc, *tf2_, base_link_frame_, *base_link_frame_filtered_pc_ptr)) {
@@ -417,7 +418,7 @@ void OccupancyGridMapOutlierFilterComponent::Debugger::transformToBaseLink(
   const PclPointCloud & pcl_input, const Header & header, PointCloud2 & output)
 {
   PointCloud2 ros_input{};
-  pcl::toROSMsg(pcl_input, ros_input);
+  pcl::alter_toROSMsg(pcl_input, ros_input);
   ros_input.header = header;
   transformPointcloud(ros_input, *(node_.tf2_), node_.base_link_frame_, output);
 }

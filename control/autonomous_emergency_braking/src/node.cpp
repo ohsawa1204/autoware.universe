@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "autonomous_emergency_braking/node.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <motion_utils/trajectory/trajectory.hpp>
 #include <tier4_autoware_utils/geometry/boost_polygon_utils.hpp>
@@ -209,7 +210,7 @@ void AEB::onAutowareState(const AutowareState::ConstSharedPtr input_msg)
 void AEB::onPointCloud(const PointCloud2::ConstSharedPtr input_msg)
 {
   PointCloud::Ptr pointcloud_ptr(new PointCloud);
-  pcl::fromROSMsg(*input_msg, *pointcloud_ptr);
+  pcl::alter_fromROSMsg(*input_msg, *pointcloud_ptr);
 
   if (input_msg->header.frame_id != "base_link") {
     RCLCPP_ERROR_STREAM(
@@ -233,7 +234,7 @@ void AEB::onPointCloud(const PointCloud2::ConstSharedPtr input_msg)
     const Eigen::Matrix4f affine_matrix =
       tf2::transformToEigen(transform_stamped.transform).matrix().cast<float>();
     pcl_ros::transformPointCloud(affine_matrix, *input_msg, transformed_points);
-    pcl::fromROSMsg(transformed_points, *pointcloud_ptr);
+    pcl::alter_fromROSMsg(transformed_points, *pointcloud_ptr);
   }
 
   pcl::VoxelGrid<pcl::PointXYZ> filter;
@@ -243,7 +244,7 @@ void AEB::onPointCloud(const PointCloud2::ConstSharedPtr input_msg)
   filter.filter(*no_height_filtered_pointcloud_ptr);
 
   obstacle_ros_pointcloud_ptr_ = std::make_shared<PointCloud2>();
-  pcl::toROSMsg(*no_height_filtered_pointcloud_ptr, *obstacle_ros_pointcloud_ptr_);
+  pcl::alter_toROSMsg(*no_height_filtered_pointcloud_ptr, *obstacle_ros_pointcloud_ptr_);
   obstacle_ros_pointcloud_ptr_->header = input_msg->header;
   if (publish_debug_pointcloud_) {
     pub_obstacle_pointcloud_->publish(*obstacle_ros_pointcloud_ptr_);
@@ -494,7 +495,7 @@ void AEB::createObjectData(
   }
 
   PointCloud::Ptr obstacle_points_ptr(new PointCloud);
-  pcl::fromROSMsg(*obstacle_ros_pointcloud_ptr_, *obstacle_points_ptr);
+  pcl::alter_fromROSMsg(*obstacle_ros_pointcloud_ptr_, *obstacle_points_ptr);
   for (const auto & point : obstacle_points_ptr->points) {
     ObjectData obj;
     obj.stamp = stamp;

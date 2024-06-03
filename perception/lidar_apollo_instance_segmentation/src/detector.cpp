@@ -15,6 +15,7 @@
 #include "lidar_apollo_instance_segmentation/detector.hpp"
 
 #include "lidar_apollo_instance_segmentation/feature_map.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <NvCaffeParser.h>
 #include <NvInfer.h>
@@ -87,7 +88,7 @@ bool LidarApolloInstanceSegmentation::transformCloud(
 {
   // TODO(mitsudome-r): remove conversion once pcl_ros transform are available.
   pcl::PointCloud<pcl::PointXYZI> pcl_input, pcl_transformed_cloud;
-  pcl::fromROSMsg(input, pcl_input);
+  pcl::alter_fromROSMsg(input, pcl_input);
 
   // transform pointcloud to target_frame
   if (target_frame_ != input.header.frame_id) {
@@ -115,7 +116,7 @@ bool LidarApolloInstanceSegmentation::transformCloud(
   tier4_autoware_utils::transformPointCloud(
     pcl_transformed_cloud, pcl_transformed_cloud, z_up_transform);
 
-  pcl::toROSMsg(pcl_transformed_cloud, transformed_cloud);
+  pcl::alter_toROSMsg(pcl_transformed_cloud, transformed_cloud);
 
   return true;
 }
@@ -134,7 +135,7 @@ bool LidarApolloInstanceSegmentation::detectDynamicObjects(
 
   // convert from ros to pcl
   pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointcloud_raw_ptr(new pcl::PointCloud<pcl::PointXYZI>);
-  pcl::fromROSMsg(transformed_cloud, *pcl_pointcloud_raw_ptr);
+  pcl::alter_fromROSMsg(transformed_cloud, *pcl_pointcloud_raw_ptr);
 
   // generate feature map
   std::shared_ptr<FeatureMapInterface> feature_map_ptr =

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "compare_map_segmentation/distance_based_compare_map_filter_nodelet.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/search/kdtree.h>
@@ -27,7 +28,7 @@ void DistanceBasedStaticMapLoader::onMapCallback(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr map)
 {
   pcl::PointCloud<pcl::PointXYZ> map_pcl;
-  pcl::fromROSMsg<pcl::PointXYZ>(*map, map_pcl);
+  pcl::alter_fromROSMsg<pcl::PointXYZ>(*map, map_pcl);
   const auto map_pcl_ptr = pcl::make_shared<pcl::PointCloud<pcl::PointXYZ>>(map_pcl);
 
   (*mutex_ptr_).lock();
@@ -139,7 +140,7 @@ void DistanceBasedCompareMapFilterComponent::filter(
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_input(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_output(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*input, *pcl_input);
+  pcl::alter_fromROSMsg(*input, *pcl_input);
   pcl_output->points.reserve(pcl_input->points.size());
 
   for (size_t i = 0; i < pcl_input->points.size(); ++i) {
@@ -149,7 +150,7 @@ void DistanceBasedCompareMapFilterComponent::filter(
     pcl_output->points.push_back(pcl_input->points.at(i));
   }
 
-  pcl::toROSMsg(*pcl_output, output);
+  pcl::alter_toROSMsg(*pcl_output, output);
   output.header = input->header;
 
   // add processing time for debug

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "image_projection_based_fusion/utils/utils.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 namespace image_projection_based_fusion
 {
 
@@ -43,7 +44,7 @@ void convertCluster2FeatureObject(
   DetectedObjectWithFeature & feature_obj)
 {
   PointCloud2 ros_cluster;
-  pcl::toROSMsg(cluster, ros_cluster);
+  pcl::alter_toROSMsg(cluster, ros_cluster);
   ros_cluster.header = header;
   feature_obj.feature.cluster = ros_cluster;
   feature_obj.object.kinematics.pose_with_covariance.pose.position = getCentroid(ros_cluster);

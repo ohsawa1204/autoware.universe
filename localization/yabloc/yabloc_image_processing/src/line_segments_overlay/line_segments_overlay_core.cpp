@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "yabloc_image_processing/line_segments_overlay/line_segments_overlay.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <opencv4/opencv2/core/eigen.hpp>
 #include <yabloc_common/cv_decompress.hpp>
@@ -71,7 +72,7 @@ void LineSegmentsOverlay::on_line_segments(const PointCloud2::ConstSharedPtr & l
   cv::Mat image = cv_bridge::toCvShare(image_ptr, "bgr8")->image;
 
   LineSegments line_segments_cloud;
-  pcl::fromROSMsg(*line_segments_msg, line_segments_cloud);
+  pcl::alter_fromROSMsg(*line_segments_msg, line_segments_cloud);
 
   for (size_t index = 0; index < line_segments_cloud.size(); ++index) {
     const LineSegment & pn = line_segments_cloud.at(index);

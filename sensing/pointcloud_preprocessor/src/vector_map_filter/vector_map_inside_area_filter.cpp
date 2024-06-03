@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "pointcloud_preprocessor/vector_map_filter/vector_map_inside_area_filter.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 namespace
 {
@@ -90,7 +91,7 @@ void VectorMapInsideAreaFilterComponent::filter(
 
   // convert to PCL message
   pcl::PointCloud<pcl::PointXYZ>::Ptr pc_input = pcl::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
-  pcl::fromROSMsg(*input, *pc_input);
+  pcl::alter_fromROSMsg(*input, *pc_input);
 
   // calculate bounding box of points
   const auto bounding_box = calcBoundingBox(pc_input);
@@ -102,7 +103,7 @@ void VectorMapInsideAreaFilterComponent::filter(
   const auto filtered_pc = removePointsWithinPolygons(pc_input, intersected_lanelets);
 
   // convert to ROS message
-  pcl::toROSMsg(filtered_pc, output);
+  pcl::alter_toROSMsg(filtered_pc, output);
   output.header = input->header;
 }
 

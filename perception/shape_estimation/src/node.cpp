@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "shape_estimation/shape_estimator.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <node.hpp>
 #include <tier4_autoware_utils/math/unit_conversion.hpp>
@@ -73,7 +74,7 @@ void ShapeEstimationNode::callback(const DetectedObjectsWithFeature::ConstShared
 
     // convert ros to pcl
     pcl::PointCloud<pcl::PointXYZ>::Ptr cluster(new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::fromROSMsg(feature.cluster, *cluster);
+    pcl::alter_fromROSMsg(feature.cluster, *cluster);
 
     // check cluster data
     if (cluster->empty()) {

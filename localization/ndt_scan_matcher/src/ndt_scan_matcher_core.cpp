@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "ndt_scan_matcher/ndt_scan_matcher_core.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include "localization_util/matrix_type.hpp"
 #include "localization_util/util_func.hpp"
@@ -429,7 +430,7 @@ void NDTScanMatcher::callback_sensor_points(
     new pcl::PointCloud<PointSource>);
   const std::string & sensor_frame = sensor_points_msg_in_sensor_frame->header.frame_id;
 
-  pcl::fromROSMsg(*sensor_points_msg_in_sensor_frame, *sensor_points_in_sensor_frame);
+  pcl::alter_fromROSMsg(*sensor_points_msg_in_sensor_frame, *sensor_points_in_sensor_frame);
   transform_sensor_measurement(
     sensor_frame, base_frame_, sensor_points_in_sensor_frame, sensor_points_in_baselink_frame);
   ndt_ptr_->setInputSource(sensor_points_in_baselink_frame);
@@ -536,7 +537,7 @@ void NDTScanMatcher::callback_sensor_points(
     }
     // pub remove-ground points
     sensor_msgs::msg::PointCloud2 no_ground_points_msg_in_map;
-    pcl::toROSMsg(*no_ground_points_in_map_ptr, no_ground_points_msg_in_map);
+    pcl::alter_toROSMsg(*no_ground_points_in_map_ptr, no_ground_points_msg_in_map);
     no_ground_points_msg_in_map.header.stamp = sensor_ros_time;
     no_ground_points_msg_in_map.header.frame_id = map_frame_;
     no_ground_points_aligned_pose_pub_->publish(no_ground_points_msg_in_map);
@@ -621,7 +622,7 @@ void NDTScanMatcher::publish_point_cloud(
   const pcl::shared_ptr<pcl::PointCloud<PointSource>> & sensor_points_in_map_ptr)
 {
   sensor_msgs::msg::PointCloud2 sensor_points_msg_in_map;
-  pcl::toROSMsg(*sensor_points_in_map_ptr, sensor_points_msg_in_map);
+  pcl::alter_toROSMsg(*sensor_points_in_map_ptr, sensor_points_msg_in_map);
   sensor_points_msg_in_map.header.stamp = sensor_ros_time;
   sensor_points_msg_in_map.header.frame_id = frame_id;
   sensor_aligned_pose_pub_->publish(sensor_points_msg_in_map);

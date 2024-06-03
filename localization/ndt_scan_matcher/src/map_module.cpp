@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "ndt_scan_matcher/map_module.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 MapModule::MapModule(
   rclcpp::Node * node, std::mutex * ndt_ptr_mutex,
@@ -35,7 +36,7 @@ void MapModule::callback_map_points(
   new_ndt.setParams(ndt_ptr_->getParams());
 
   pcl::shared_ptr<pcl::PointCloud<PointTarget>> map_points_ptr(new pcl::PointCloud<PointTarget>);
-  pcl::fromROSMsg(*map_points_msg_ptr, *map_points_ptr);
+  pcl::alter_fromROSMsg(*map_points_msg_ptr, *map_points_ptr);
   new_ndt.setInputTarget(map_points_ptr);
   // create Thread
   // detach

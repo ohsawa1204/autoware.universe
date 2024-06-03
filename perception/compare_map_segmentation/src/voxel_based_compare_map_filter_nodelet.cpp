@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "compare_map_segmentation/voxel_based_compare_map_filter_nodelet.hpp"
+#include "tier4_autoware_utils/ros/pcl_conversions_alter_rosmsg.h"
 
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/search/kdtree.h>
@@ -69,7 +70,7 @@ void VoxelBasedCompareMapFilterComponent::filter(
   stop_watch_ptr_->toc("processing_time", true);
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_input(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_output(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*input, *pcl_input);
+  pcl::alter_fromROSMsg(*input, *pcl_input);
   pcl_output->points.reserve(pcl_input->points.size());
   for (size_t i = 0; i < pcl_input->points.size(); ++i) {
     const pcl::PointXYZ point = pcl_input->points.at(i);
@@ -78,7 +79,7 @@ void VoxelBasedCompareMapFilterComponent::filter(
     }
     pcl_output->points.push_back(point);
   }
-  pcl::toROSMsg(*pcl_output, output);
+  pcl::alter_toROSMsg(*pcl_output, output);
   output.header = input->header;
 
   // add processing time for debug
