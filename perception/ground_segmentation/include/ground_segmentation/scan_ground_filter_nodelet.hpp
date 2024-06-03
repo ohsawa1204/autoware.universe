@@ -155,8 +155,8 @@ private:
     const PointCloud2ConstPtr & input, const IndicesPtr & indices, PointCloud2 & output,
     const pointcloud_preprocessor::TransformInfo & transform_info);
 
-  tf2_ros::Buffer tf_buffer_{get_clock()};
-  tf2_ros::TransformListener tf_listener_{tf_buffer_};
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   int x_offset_;
   int y_offset_;

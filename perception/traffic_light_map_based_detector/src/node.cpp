@@ -37,6 +37,10 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #endif
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace
 {
 cv::Point2d calcRawImagePointFromPoint3D(
@@ -121,11 +125,20 @@ tf2::Vector3 getTrafficLightCenter(const lanelet::ConstLineString3d & traffic_li
 namespace traffic_light
 {
 MapBasedDetector::MapBasedDetector(const rclcpp::NodeOptions & node_options)
-: Node("traffic_light_map_based_detector", node_options),
-  tf_buffer_(this->get_clock()),
-  tf_listener_(tf_buffer_)
+: Node("traffic_light_map_based_detector", node_options)
 {
   using std::placeholders::_1;
+
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
 
   // parameter declaration needs default values: are 0.0 goof defaults for this?
   config_.max_vibration_pitch = declare_parameter<double>("max_vibration_pitch", 0.0);
@@ -181,7 +194,7 @@ bool MapBasedDetector::getTransform(
 {
   try {
     geometry_msgs::msg::TransformStamped transform =
-      tf_buffer_.lookupTransform("map", frame_id, t, rclcpp::Duration::from_seconds(0.2));
+      tf_buffer_->lookupTransform("map", frame_id, t, rclcpp::Duration::from_seconds(0.2));
     tf2::fromMsg(transform.transform, tf);
   } catch (tf2::TransformException & ex) {
     return false;

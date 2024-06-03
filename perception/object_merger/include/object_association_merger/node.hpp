@@ -55,8 +55,8 @@ private:
     const autoware_auto_perception_msgs::msg::DetectedObjects::ConstSharedPtr & input_object0_msg,
     const autoware_auto_perception_msgs::msg::DetectedObjects::ConstSharedPtr & input_object1_msg);
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   rclcpp::Publisher<autoware_auto_perception_msgs::msg::DetectedObjects>::SharedPtr
     merged_object_pub_;
   message_filters::Subscriber<autoware_auto_perception_msgs::msg::DetectedObjects> object0_sub_{};

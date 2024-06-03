@@ -63,8 +63,8 @@ private:
   // ROS
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<DiagnosticArray>::SharedPtr metrics_pub_;
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_ptr_;
-  std::unique_ptr<tf2_ros::TransformListener> tf_listener_ptr_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_ptr_;
 
   // Parameters
   std::string output_file_str_;

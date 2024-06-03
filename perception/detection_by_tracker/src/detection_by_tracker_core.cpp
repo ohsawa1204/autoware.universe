@@ -29,6 +29,10 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 using Label = autoware_auto_perception_msgs::msg::ObjectClassification;
 namespace
 {
@@ -145,10 +149,18 @@ bool TrackerHandler::estimateTrackedObjects(
 }
 
 DetectionByTracker::DetectionByTracker(const rclcpp::NodeOptions & node_options)
-: rclcpp::Node("detection_by_tracker", node_options),
-  tf_buffer_(this->get_clock()),
-  tf_listener_(tf_buffer_)
+: rclcpp::Node("detection_by_tracker", node_options)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   // Create publishers and subscribers
   trackers_sub_ = create_subscription<autoware_auto_perception_msgs::msg::TrackedObjects>(
     "~/input/tracked_objects", rclcpp::QoS{1},
@@ -218,7 +230,7 @@ void DetectionByTracker::onObjects(
     if (
       !available_trackers ||
       !object_recognition_utils::transformObjects(
-        objects, input_msg->header.frame_id, tf_buffer_, transformed_objects)) {
+        objects, input_msg->header.frame_id, *tf_buffer_, transformed_objects)) {
       objects_pub_->publish(detected_objects);
       return;
     }

@@ -20,13 +20,25 @@
 #include <string>
 #include <vector>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace planning_diagnostics
 {
 MotionEvaluatorNode::MotionEvaluatorNode(const rclcpp::NodeOptions & node_options)
 : Node("motion_evaluator", node_options)
 {
-  tf_buffer_ptr_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ptr_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_ptr_);
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ptr_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_ptr_);
+    } else {
+      tf_buffer_ptr_ = ___global_tf_buffer_;
+      tf_listener_ptr_ = ___global_tf_listener_;
+    }
+  }
 
   twist_sub_ = create_subscription<nav_msgs::msg::Odometry>(
     "~/input/twist", rclcpp::QoS{1},

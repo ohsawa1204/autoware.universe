@@ -71,8 +71,8 @@ private:
   rclcpp::TimerBase::SharedPtr publish_timer_;          // publish timer
   rclcpp::Subscription<HADMapBin>::SharedPtr sub_map_;  // map subscriber
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   float tracker_lifetime_;
   std::map<std::uint8_t, std::string> tracker_map_;
 

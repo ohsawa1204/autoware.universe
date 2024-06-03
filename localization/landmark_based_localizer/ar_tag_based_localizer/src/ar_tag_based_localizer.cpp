@@ -64,6 +64,10 @@
 
 #include <tier4_autoware_utils/geometry/geometry.hpp>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 ArTagBasedLocalizer::ArTagBasedLocalizer(const rclcpp::NodeOptions & options)
 : Node("ar_tag_based_localizer", options), cam_info_received_(false)
 {
@@ -104,8 +108,16 @@ ArTagBasedLocalizer::ArTagBasedLocalizer(const rclcpp::NodeOptions & options)
   /*
     tf
   */
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
 
   /*
     Subscribers

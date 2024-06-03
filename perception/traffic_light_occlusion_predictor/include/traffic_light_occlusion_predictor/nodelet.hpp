@@ -80,8 +80,8 @@ private:
    */
   rclcpp::Publisher<tier4_perception_msgs::msg::TrafficSignalArray>::SharedPtr signal_pub_;
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::map<lanelet::Id, tf2::Vector3> traffic_light_position_map_;
   Config config_;
   /**

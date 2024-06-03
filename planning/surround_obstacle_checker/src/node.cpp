@@ -47,6 +47,10 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace surround_obstacle_checker
 {
 namespace bg = boost::geometry;
@@ -151,6 +155,17 @@ Polygon2d createSelfPolygon(
 SurroundObstacleCheckerNode::SurroundObstacleCheckerNode(const rclcpp::NodeOptions & node_options)
 : Node("surround_obstacle_checker_node", node_options)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
+
   label_map_ = {
     {"unknown", ObjectClassification::UNKNOWN}, {"car", ObjectClassification::CAR},
     {"truck", ObjectClassification::TRUCK},     {"bus", ObjectClassification::BUS},
@@ -529,7 +544,7 @@ std::optional<geometry_msgs::msg::TransformStamped> SurroundObstacleCheckerNode:
 
   try {
     transform_stamped =
-      tf_buffer_.lookupTransform(source, target, stamp, tf2::durationFromSec(duration_sec));
+      tf_buffer_->lookupTransform(source, target, stamp, tf2::durationFromSec(duration_sec));
   } catch (tf2::TransformException & ex) {
     return {};
   }

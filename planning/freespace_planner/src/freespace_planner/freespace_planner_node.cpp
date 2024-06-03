@@ -42,6 +42,10 @@
 #include <utility>
 #include <vector>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace
 {
 using autoware_auto_planning_msgs::msg::Trajectory;
@@ -275,8 +279,14 @@ FreespacePlannerNode::FreespacePlannerNode(const rclcpp::NodeOptions & node_opti
 
   // TF
   {
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+        ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+        ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+        tf_buffer_ = ___global_tf_buffer_;
+        tf_listener_ = ___global_tf_listener_;
+    }
   }
 
   // Timer

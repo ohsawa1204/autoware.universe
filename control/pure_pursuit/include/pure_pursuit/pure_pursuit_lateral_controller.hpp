@@ -127,8 +127,8 @@ private:
   void setResampledTrajectory();
 
   // TF
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   geometry_msgs::msg::Pose current_pose_;
 
   void publishDebugMarker() const;

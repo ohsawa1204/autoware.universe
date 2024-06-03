@@ -163,8 +163,8 @@ private:
   std::unique_ptr<ExactTimeSynchronizer> exact_time_synchronizer_;
 
   // tf
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // obstacle points
   pcl::PointCloud<pcl::PointXYZ> obstacle_points_map_filtered_;

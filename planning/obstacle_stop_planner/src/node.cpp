@@ -38,6 +38,10 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #endif
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace motion_planning
 {
 using autoware_auto_perception_msgs::msg::PredictedObject;
@@ -55,6 +59,17 @@ using tier4_autoware_utils::getRPY;
 ObstacleStopPlannerNode::ObstacleStopPlannerNode(const rclcpp::NodeOptions & node_options)
 : Node("obstacle_stop_planner", node_options)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
+
   // Vehicle Parameters
   vehicle_info_ = vehicle_info_util::VehicleInfoUtil(*this).getVehicleInfo();
 
@@ -1456,7 +1471,7 @@ bool ObstacleStopPlannerNode::searchPointcloudNearTrajectory(
   // transform pointcloud
   TransformStamped transform_stamped{};
   try {
-    transform_stamped = tf_buffer_.lookupTransform(
+    transform_stamped = tf_buffer_->lookupTransform(
       trajectory_header.frame_id, input_points_ptr->header.frame_id, input_points_ptr->header.stamp,
       rclcpp::Duration::from_seconds(0.5));
   } catch (tf2::TransformException & ex) {

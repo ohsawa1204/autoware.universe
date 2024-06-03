@@ -93,7 +93,7 @@ void RoiClusterFusionNode::fuseOnSingleImage(
   geometry_msgs::msg::TransformStamped transform_stamped;
   {
     const auto transform_stamped_optional = getTransformStamped(
-      tf_buffer_, /*target*/ camera_info.header.frame_id,
+      *tf_buffer_, /*target*/ camera_info.header.frame_id,
       /*source*/ input_cluster_msg.header.frame_id, camera_info.header.stamp);
     if (!transform_stamped_optional) {
       RCLCPP_WARN_STREAM(

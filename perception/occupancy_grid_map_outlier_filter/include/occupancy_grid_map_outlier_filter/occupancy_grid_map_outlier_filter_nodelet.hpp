@@ -111,7 +111,7 @@ private:
 
   // tf
   std::shared_ptr<tf2_ros::Buffer> tf2_;
-  std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // 2d outlier filter
   std::shared_ptr<RadiusSearch2dFilter> radius_search_2d_filter_ptr_;

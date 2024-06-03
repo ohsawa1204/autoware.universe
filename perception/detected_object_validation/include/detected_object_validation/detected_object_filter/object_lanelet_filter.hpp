@@ -54,8 +54,8 @@ private:
   lanelet::ConstLanelets shoulder_lanelets_;
   std::string lanelet_frame_id_;
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   utils::FilterTargetLabel filter_target_;
 

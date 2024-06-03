@@ -40,6 +40,10 @@
 #include <memory>
 #include <utility>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace
 {
 enum TYPE {
@@ -58,10 +62,18 @@ namespace pure_pursuit
 {
 PurePursuitLateralController::PurePursuitLateralController(rclcpp::Node & node)
 : clock_(node.get_clock()),
-  logger_(node.get_logger().get_child("lateral_controller")),
-  tf_buffer_(clock_),
-  tf_listener_(tf_buffer_)
+  logger_(node.get_logger().get_child("lateral_controller"))
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(clock_);
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   pure_pursuit_ = std::make_unique<PurePursuit>();
 
   // Vehicle Parameters

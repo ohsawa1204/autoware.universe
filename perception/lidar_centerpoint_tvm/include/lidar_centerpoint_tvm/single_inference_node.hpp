@@ -48,8 +48,8 @@ private:
     const autoware_auto_perception_msgs::msg::DetectedObjects & objects_msg,
     const std::string & output_path) const;
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_{tf_buffer_};
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   float score_threshold_{0.0};
   std::vector<std::string> class_names_;

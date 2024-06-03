@@ -38,6 +38,10 @@
 #include <memory>
 #include <vector>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace
 {
 rclcpp::SubscriptionOptions createSubscriptionOptions(rclcpp::Node * node_ptr)
@@ -70,12 +74,21 @@ autoware_auto_planning_msgs::msg::Path to_path(
 
 BehaviorVelocityPlannerNode::BehaviorVelocityPlannerNode(const rclcpp::NodeOptions & node_options)
 : Node("behavior_velocity_planner_node", node_options),
-  tf_buffer_(this->get_clock()),
-  tf_listener_(tf_buffer_),
   planner_data_(*this)
 {
   using std::placeholders::_1;
   using std::placeholders::_2;
+
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
 
   // Trigger Subscriber
   trigger_sub_path_with_lane_id_ =
@@ -245,7 +258,7 @@ void BehaviorVelocityPlannerNode::onNoGroundPointCloud(
 {
   geometry_msgs::msg::TransformStamped transform;
   try {
-    transform = tf_buffer_.lookupTransform(
+    transform = tf_buffer_->lookupTransform(
       "map", msg->header.frame_id, msg->header.stamp, rclcpp::Duration::from_seconds(0.1));
   } catch (tf2::TransformException & e) {
     RCLCPP_WARN(get_logger(), "no transform found for no_ground_pointcloud: %s", e.what());

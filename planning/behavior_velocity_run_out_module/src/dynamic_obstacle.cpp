@@ -29,6 +29,10 @@
 #include <limits>
 #include <string>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace behavior_velocity_planner
 {
 namespace
@@ -240,12 +244,12 @@ pcl::PointCloud<pcl::PointXYZ> extractLateralNearestPoints(
 }
 
 std::optional<Eigen::Affine3f> getTransformMatrix(
-  const tf2_ros::Buffer & tf_buffer, const std::string & target_frame_id,
+  const std::shared_ptr<tf2_ros::Buffer> & tf_buffer, const std::string & target_frame_id,
   const std::string & source_frame_id, const builtin_interfaces::msg::Time & stamp)
 {
   geometry_msgs::msg::TransformStamped transform;
   try {
-    transform = tf_buffer.lookupTransform(target_frame_id, source_frame_id, stamp);
+    transform = tf_buffer->lookupTransform(target_frame_id, source_frame_id, stamp);
   } catch (tf2::TransformException & e) {
     RCLCPP_WARN(rclcpp::get_logger("dynamic_obstacle_creator"), "no transform found: %s", e.what());
     return {};
@@ -427,10 +431,18 @@ std::vector<DynamicObstacle> DynamicObstacleCreatorForObjectWithoutPath::createD
 
 DynamicObstacleCreatorForPoints::DynamicObstacleCreatorForPoints(
   rclcpp::Node & node, std::shared_ptr<RunOutDebug> & debug_ptr, const DynamicObstacleParam & param)
-: DynamicObstacleCreator(node, debug_ptr, param),
-  tf_buffer_(node.get_clock()),
-  tf_listener_(tf_buffer_)
+: DynamicObstacleCreator(node, debug_ptr, param)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node.get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   if (param_.use_mandatory_area) {
     // Subscribe the input using message filter
     const size_t max_queue_size = 1;

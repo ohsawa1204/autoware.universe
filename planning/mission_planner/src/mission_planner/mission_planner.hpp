@@ -69,8 +69,8 @@ private:
   pluginlib::ClassLoader<PlannerPlugin> plugin_loader_;
   std::shared_ptr<PlannerPlugin> planner_;
   std::string map_frame_;
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   PoseStamped transform_pose(const PoseStamped & input);
 
   rclcpp::Subscription<Odometry>::SharedPtr sub_odometry_;

@@ -23,6 +23,10 @@
 #include <string>
 #include <vector>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace localization_diagnostics
 {
 LocalizationEvaluatorNode::LocalizationEvaluatorNode(const rclcpp::NodeOptions & node_options)
@@ -31,8 +35,16 @@ LocalizationEvaluatorNode::LocalizationEvaluatorNode(const rclcpp::NodeOptions &
   pose_gt_sub_(this, "~/input/localization/ref", rclcpp::QoS{1}.get_rmw_qos_profile()),
   sync_(SyncPolicy(100), odom_sub_, pose_gt_sub_)
 {
-  tf_buffer_ptr_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ptr_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_ptr_);
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ptr_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_ptr_);
+    } else {
+      tf_buffer_ptr_ = ___global_tf_buffer_;
+      tf_listener_ptr_ = ___global_tf_listener_;
+    }
+  }
 
   sync_.registerCallback(std::bind(
     &LocalizationEvaluatorNode::syncCallback, this, std::placeholders::_1, std::placeholders::_2));

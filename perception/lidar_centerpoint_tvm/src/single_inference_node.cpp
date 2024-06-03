@@ -34,6 +34,10 @@
 #include <memory>
 #include <sstream>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace autoware
 {
 namespace perception
@@ -43,8 +47,18 @@ namespace lidar_centerpoint_tvm
 
 SingleInferenceLidarCenterPointNode::SingleInferenceLidarCenterPointNode(
   const rclcpp::NodeOptions & node_options)
-: Node("lidar_center_point_tvm", node_options), tf_buffer_(this->get_clock())
+: Node("lidar_center_point_tvm", node_options)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   const float score_threshold =
     static_cast<float>(this->declare_parameter<double>("score_threshold", 0.35));
   const float circle_nms_dist_threshold =
@@ -154,7 +168,7 @@ void SingleInferenceLidarCenterPointNode::detect(
   msg.header.frame_id = "lidar_frame";
 
   std::vector<Box3D> det_boxes3d;
-  bool is_success = detector_ptr_->detect(msg, tf_buffer_, det_boxes3d);
+  bool is_success = detector_ptr_->detect(msg, *tf_buffer_, det_boxes3d);
   if (!is_success) {
     return;
   }

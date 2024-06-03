@@ -36,24 +36,28 @@
 #include <Eigen/Geometry>
 #include <rclcpp_components/register_node_macro.hpp>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 using Label = autoware_auto_perception_msgs::msg::ObjectClassification;
 
 namespace
 {
 boost::optional<geometry_msgs::msg::Transform> getTransformAnonymous(
-  const tf2_ros::Buffer & tf_buffer, const std::string & source_frame_id,
+  const std::shared_ptr<tf2_ros::Buffer> & tf_buffer, const std::string & source_frame_id,
   const std::string & target_frame_id, const rclcpp::Time & time)
 {
   try {
     // check if the frames are ready
     std::string errstr;  // This argument prevents error msg from being displayed in the terminal.
-    if (!tf_buffer.canTransform(
+    if (!tf_buffer->canTransform(
           target_frame_id, source_frame_id, tf2::TimePointZero, tf2::Duration::zero(), &errstr)) {
       return boost::none;
     }
 
     geometry_msgs::msg::TransformStamped self_transform_stamped;
-    self_transform_stamped = tf_buffer.lookupTransform(
+    self_transform_stamped = tf_buffer->lookupTransform(
       /*target*/ target_frame_id, /*src*/ source_frame_id, time,
       rclcpp::Duration::from_seconds(0.5));
     return self_transform_stamped.transform;
@@ -173,10 +177,19 @@ void TrackerDebugger::startMeasurementTime(const rclcpp::Time & measurement_head
 }
 
 MultiObjectTracker::MultiObjectTracker(const rclcpp::NodeOptions & node_options)
-: rclcpp::Node("multi_object_tracker", node_options),
-  tf_buffer_(this->get_clock()),
-  tf_listener_(tf_buffer_)
+: rclcpp::Node("multi_object_tracker", node_options)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
+
   // Create publishers and subscribers
   detected_object_sub_ = create_subscription<autoware_auto_perception_msgs::msg::DetectedObjects>(
     "input", rclcpp::QoS{1},
@@ -194,7 +207,7 @@ MultiObjectTracker::MultiObjectTracker(const rclcpp::NodeOptions & node_options)
 
   auto cti = std::make_shared<tf2_ros::CreateTimerROS>(
     this->get_node_base_interface(), this->get_node_timers_interface());
-  tf_buffer_.setCreateTimerInterface(cti);
+  tf_buffer_->setCreateTimerInterface(cti);
 
   // Create ROS time based timer
   if (enable_delay_compensation) {
@@ -247,7 +260,7 @@ void MultiObjectTracker::onMeasurement(
   /* transform to world coordinate */
   autoware_auto_perception_msgs::msg::DetectedObjects transformed_objects;
   if (!object_recognition_utils::transformObjects(
-        *input_objects_msg, world_frame_id_, tf_buffer_, transformed_objects)) {
+        *input_objects_msg, world_frame_id_, *tf_buffer_, transformed_objects)) {
     return;
   }
   /* tracker prediction */

@@ -162,8 +162,8 @@ public:
   Trajectory::ConstSharedPtr predicted_traj_ptr_{nullptr};
   AutowareState::ConstSharedPtr autoware_state_{nullptr};
 
-  tf2_ros::Buffer tf_buffer_{get_clock()};
-  tf2_ros::TransformListener tf_listener_{tf_buffer_};
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // vehicle info
   VehicleInfo vehicle_info_;

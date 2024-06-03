@@ -133,8 +133,8 @@ private:
   rclcpp::Publisher<autoware_auto_perception_msgs::msg::DetectedObjects>::SharedPtr objects_pub_;
   message_filters::Subscriber<autoware_auto_perception_msgs::msg::DetectedObjects> objects_sub_;
   message_filters::Subscriber<sensor_msgs::msg::PointCloud2> obstacle_pointcloud_sub_;
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   typedef message_filters::sync_policies::ApproximateTime<
     autoware_auto_perception_msgs::msg::DetectedObjects, sensor_msgs::msg::PointCloud2>

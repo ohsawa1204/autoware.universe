@@ -64,17 +64,21 @@
 #include <utility>
 #include <vector>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace
 {
 
 // Copied from scenario selector
 geometry_msgs::msg::PoseStamped::ConstSharedPtr getCurrentPose(
-  const tf2_ros::Buffer & tf_buffer, const rclcpp::Logger & logger)
+  const std::shared_ptr<tf2_ros::Buffer> & tf_buffer, const rclcpp::Logger & logger)
 {
   geometry_msgs::msg::TransformStamped tf_current_pose;
 
   try {
-    tf_current_pose = tf_buffer.lookupTransform("map", "base_link", tf2::TimePointZero);
+    tf_current_pose = tf_buffer->lookupTransform("map", "base_link", tf2::TimePointZero);
   } catch (tf2::TransformException & ex) {
     RCLCPP_ERROR(logger, "%s", ex.what());
     return nullptr;
@@ -158,8 +162,19 @@ pcl::PointCloud<pcl::PointXYZ> getTransformedPointCloud(
 }  // namespace
 
 CostmapGenerator::CostmapGenerator(const rclcpp::NodeOptions & node_options)
-: Node("costmap_generator", node_options), tf_buffer_(this->get_clock()), tf_listener_(tf_buffer_)
+: Node("costmap_generator", node_options)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
+
   // Parameters
   costmap_frame_ = declare_parameter<std::string>("costmap_frame");
   vehicle_frame_ = declare_parameter<std::string>("vehicle_frame");
@@ -186,7 +201,7 @@ CostmapGenerator::CostmapGenerator(const rclcpp::NodeOptions & node_options)
   // We want to do this before creating subscriptions
   while (rclcpp::ok()) {
     try {
-      tf_buffer_.lookupTransform("map", "base_link", tf2::TimePointZero);
+      tf_buffer_->lookupTransform("map", "base_link", tf2::TimePointZero);
       break;
     } catch (const tf2::TransformException & ex) {
       RCLCPP_INFO(this->get_logger(), "waiting for initial pose...");
@@ -302,7 +317,7 @@ void CostmapGenerator::onTimer()
   // Get current pose
   geometry_msgs::msg::TransformStamped tf;
   try {
-    tf = tf_buffer_.lookupTransform(
+    tf = tf_buffer_->lookupTransform(
       costmap_frame_, vehicle_frame_, rclcpp::Time(0), rclcpp::Duration::from_seconds(1.0));
   } catch (tf2::TransformException & ex) {
     RCLCPP_ERROR(this->get_logger(), "%s", ex.what());
@@ -374,7 +389,7 @@ grid_map::Matrix CostmapGenerator::generatePointsCostmap(
   geometry_msgs::msg::TransformStamped points2costmap;
   try {
     points2costmap =
-      tf_buffer_.lookupTransform(costmap_frame_, in_points->header.frame_id, tf2::TimePointZero);
+      tf_buffer_->lookupTransform(costmap_frame_, in_points->header.frame_id, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_ERROR(rclcpp::get_logger("costmap_generator"), "%s", ex.what());
   }
@@ -389,7 +404,7 @@ grid_map::Matrix CostmapGenerator::generatePointsCostmap(
 }
 
 autoware_auto_perception_msgs::msg::PredictedObjects::ConstSharedPtr transformObjects(
-  const tf2_ros::Buffer & tf_buffer,
+  const std::shared_ptr<tf2_ros::Buffer> & tf_buffer,
   const autoware_auto_perception_msgs::msg::PredictedObjects::ConstSharedPtr in_objects,
   const std::string & target_frame_id, const std::string & src_frame_id)
 {
@@ -399,7 +414,7 @@ autoware_auto_perception_msgs::msg::PredictedObjects::ConstSharedPtr transformOb
 
   geometry_msgs::msg::TransformStamped objects2costmap;
   try {
-    objects2costmap = tf_buffer.lookupTransform(target_frame_id, src_frame_id, tf2::TimePointZero);
+    objects2costmap = tf_buffer->lookupTransform(target_frame_id, src_frame_id, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_ERROR(rclcpp::get_logger("costmap_generator"), "%s", ex.what());
   }
@@ -433,7 +448,7 @@ grid_map::Matrix CostmapGenerator::generatePrimitivesCostmap()
   if (!primitives_points_.empty()) {
     object_map::FillPolygonAreas(
       lanelet2_costmap, primitives_points_, LayerName::primitives, grid_max_value_, grid_min_value_,
-      grid_min_value_, grid_max_value_, costmap_frame_, map_frame_, tf_buffer_);
+      grid_min_value_, grid_max_value_, costmap_frame_, map_frame_, *tf_buffer_);
   }
   return lanelet2_costmap[LayerName::primitives];
 }

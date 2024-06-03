@@ -59,8 +59,8 @@ private:
   std::shared_ptr<FeatureGenerator> feature_generator_;
   float score_threshold_;
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::string target_frame_;
   float z_offset_;
 

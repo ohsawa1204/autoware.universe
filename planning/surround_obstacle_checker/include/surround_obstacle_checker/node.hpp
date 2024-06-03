@@ -105,8 +105,8 @@ private:
   bool isStopRequired(const bool is_obstacle_found, const bool is_stopped);
 
   // ros
-  mutable tf2_ros::Buffer tf_buffer_{get_clock()};
-  mutable tf2_ros::TransformListener tf_listener_{tf_buffer_};
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   // publisher and subscriber

@@ -24,6 +24,10 @@
 #include <utility>
 #include <vector>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace planning_diagnostics
 {
 PlanningEvaluatorNode::PlanningEvaluatorNode(const rclcpp::NodeOptions & node_options)
@@ -47,8 +51,16 @@ PlanningEvaluatorNode::PlanningEvaluatorNode(const rclcpp::NodeOptions & node_op
   odom_sub_ = create_subscription<Odometry>(
     "~/input/odometry", 1, std::bind(&PlanningEvaluatorNode::onOdometry, this, _1));
 
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-  transform_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ptr_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_ptr_);
+    } else {
+      tf_buffer_ptr_ = ___global_tf_buffer_;
+      tf_listener_ptr_ = ___global_tf_listener_;
+    }
+  }
 
   // Parameters
   metrics_calculator_.parameters.trajectory.min_point_dist_m =

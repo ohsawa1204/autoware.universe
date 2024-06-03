@@ -20,11 +20,25 @@
 #include <NvInfer.h>
 #include <pcl_conversions/pcl_conversions.h>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace lidar_apollo_instance_segmentation
 {
 LidarApolloInstanceSegmentation::LidarApolloInstanceSegmentation(rclcpp::Node * node)
-: node_(node), tf_buffer_(node_->get_clock()), tf_listener_(tf_buffer_)
+: node_(node)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   int range, width, height;
   bool use_intensity_feature, use_constant_feature;
   std::string onnx_file;
@@ -79,7 +93,7 @@ bool LidarApolloInstanceSegmentation::transformCloud(
   if (target_frame_ != input.header.frame_id) {
     try {
       geometry_msgs::msg::TransformStamped transform_stamped;
-      transform_stamped = tf_buffer_.lookupTransform(
+      transform_stamped = tf_buffer_->lookupTransform(
         target_frame_, input.header.frame_id, input.header.stamp, std::chrono::milliseconds(500));
       Eigen::Matrix4f affine_matrix =
         tf2::transformToEigen(transform_stamped.transform).matrix().cast<float>();

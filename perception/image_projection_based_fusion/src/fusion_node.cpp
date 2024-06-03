@@ -37,14 +37,28 @@
 // static int publish_counter = 0;
 static double processing_time_ms = 0;
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace image_projection_based_fusion
 {
 
 template <class Msg, class ObjType>
 FusionNode<Msg, ObjType>::FusionNode(
   const std::string & node_name, const rclcpp::NodeOptions & options)
-: Node(node_name, options), tf_buffer_(this->get_clock()), tf_listener_(tf_buffer_)
+: Node(node_name, options)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   // set rois_number
   rois_number_ = static_cast<std::size_t>(declare_parameter<int32_t>("rois_number"));
   if (rois_number_ < 1) {

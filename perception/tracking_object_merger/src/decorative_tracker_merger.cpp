@@ -27,6 +27,10 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 using Label = autoware_auto_perception_msgs::msg::ObjectClassification;
 
 namespace tracking_object_merger
@@ -81,10 +85,18 @@ Eigen::MatrixXd calcScoreMatrixForAssociation(
 }
 
 DecorativeTrackerMergerNode::DecorativeTrackerMergerNode(const rclcpp::NodeOptions & node_options)
-: rclcpp::Node("decorative_object_merger_node", node_options),
-  tf_buffer_(get_clock()),
-  tf_listener_(tf_buffer_)
+: rclcpp::Node("decorative_object_merger_node", node_options)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   // Subscriber
   sub_main_objects_ = create_subscription<TrackedObjects>(
     "input/main_object", rclcpp::QoS{1},

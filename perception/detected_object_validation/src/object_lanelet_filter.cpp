@@ -25,14 +25,27 @@
 
 #include <lanelet2_core/geometry/Polygon.h>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace object_lanelet_filter
 {
 ObjectLaneletFilterNode::ObjectLaneletFilterNode(const rclcpp::NodeOptions & node_options)
-: Node("object_lanelet_filter_node", node_options),
-  tf_buffer_(this->get_clock()),
-  tf_listener_(tf_buffer_)
+: Node("object_lanelet_filter_node", node_options)
 {
   using std::placeholders::_1;
+
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
 
   // Set parameters
   filter_target_.UNKNOWN = declare_parameter<bool>("filter_target_label.UNKNOWN", false);
@@ -80,7 +93,7 @@ void ObjectLaneletFilterNode::objectCallback(
   }
   autoware_auto_perception_msgs::msg::DetectedObjects transformed_objects;
   if (!object_recognition_utils::transformObjects(
-        *input_msg, lanelet_frame_id_, tf_buffer_, transformed_objects)) {
+        *input_msg, lanelet_frame_id_, *tf_buffer_, transformed_objects)) {
     RCLCPP_ERROR(get_logger(), "Failed transform to %s.", lanelet_frame_id_.c_str());
     return;
   }

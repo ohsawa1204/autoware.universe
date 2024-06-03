@@ -33,6 +33,10 @@
 #include <utility>
 #include <vector>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 // postfix for output topics
 #define POSTFIX_NAME "_synchronized"
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,8 +103,14 @@ PointCloudDataSynchronizerComponent::PointCloudDataSynchronizerComponent(
 
   // tf2 listener
   {
-    tf2_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-    tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf2_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
+    } else {
+      tf2_buffer_ = ___global_tf_buffer_;
+      tf2_listener_ = ___global_tf_listener_;
+    }
   }
 
   // Subscribers

@@ -31,6 +31,10 @@
 #include <random>
 #include <utility>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace
 {
 
@@ -76,14 +80,22 @@ MissionPlanner::MissionPlanner(const rclcpp::NodeOptions & options)
 : Node("mission_planner", options),
   arrival_checker_(this),
   plugin_loader_("mission_planner", "mission_planner::PlannerPlugin"),
-  tf_buffer_(get_clock()),
-  tf_listener_(tf_buffer_),
   odometry_(nullptr),
   map_ptr_(nullptr),
   reroute_availability_(nullptr),
   normal_route_(nullptr),
   mrm_route_(nullptr)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   map_frame_ = declare_parameter<std::string>("map_frame");
   reroute_time_threshold_ = declare_parameter<double>("reroute_time_threshold");
   minimum_reroute_length_ = declare_parameter<double>("minimum_reroute_length");
@@ -182,7 +194,7 @@ PoseStamped MissionPlanner::transform_pose(const PoseStamped & input)
   PoseStamped output;
   geometry_msgs::msg::TransformStamped transform;
   try {
-    transform = tf_buffer_.lookupTransform(map_frame_, input.header.frame_id, tf2::TimePointZero);
+    transform = tf_buffer_->lookupTransform(map_frame_, input.header.frame_id, tf2::TimePointZero);
     tf2::doTransform(input, output, transform);
     return output;
   } catch (tf2::TransformException & error) {

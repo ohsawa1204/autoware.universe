@@ -101,8 +101,8 @@ private:
   double ekf_position_tolerance_{};
 
   // tf
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // Subscribers
   rclcpp::Subscription<HADMapBin>::SharedPtr map_bin_sub_;

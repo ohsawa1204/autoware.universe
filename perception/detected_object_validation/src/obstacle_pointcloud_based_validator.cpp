@@ -29,6 +29,10 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace obstacle_pointcloud_based_validator
 {
 namespace bg = boost::geometry;
@@ -278,10 +282,18 @@ ObstaclePointCloudBasedValidator::ObstaclePointCloudBasedValidator(
   obstacle_pointcloud_sub_(
     this, "~/input/obstacle_pointcloud",
     rclcpp::SensorDataQoS{}.keep_last(1).get_rmw_qos_profile()),
-  tf_buffer_(get_clock()),
-  tf_listener_(tf_buffer_),
   sync_(SyncPolicy(10), objects_sub_, obstacle_pointcloud_sub_)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   points_num_threshold_param_.min_points_num =
     declare_parameter<std::vector<int64_t>>("min_points_num");
   points_num_threshold_param_.max_points_num =
@@ -319,7 +331,7 @@ void ObstaclePointCloudBasedValidator::onObjectsAndObstaclePointCloud(
   // Transform to pointcloud frame
   autoware_auto_perception_msgs::msg::DetectedObjects transformed_objects;
   if (!object_recognition_utils::transformObjects(
-        *input_objects, input_obstacle_pointcloud->header.frame_id, tf_buffer_,
+        *input_objects, input_obstacle_pointcloud->header.frame_id, *tf_buffer_,
         transformed_objects)) {
     // objects_pub_->publish(*input_objects);
     return;

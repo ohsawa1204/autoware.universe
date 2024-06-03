@@ -85,8 +85,8 @@ private:
   rclcpp::Publisher<tier4_perception_msgs::msg::TrafficLightRoiArray>::SharedPtr expect_roi_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_pub_;
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   using TrafficLightSet = std::set<lanelet::ConstLineString3d, IdLessThan>;
 

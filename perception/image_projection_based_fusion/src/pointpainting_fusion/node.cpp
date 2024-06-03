@@ -281,7 +281,7 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   Eigen::Affine3f lidar2cam_affine;
   {
     const auto transform_stamped_optional = getTransformStamped(
-      tf_buffer_, /*target*/ input_roi_msg.header.frame_id,
+      *tf_buffer_, /*target*/ input_roi_msg.header.frame_id,
       /*source*/ painted_pointcloud_msg.header.frame_id, input_roi_msg.header.stamp);
     if (!transform_stamped_optional) {
       return;
@@ -391,7 +391,7 @@ void PointPaintingFusionNode::postprocess(sensor_msgs::msg::PointCloud2 & painte
   }
 
   std::vector<centerpoint::Box3D> det_boxes3d;
-  bool is_success = detector_ptr_->detect(painted_pointcloud_msg, tf_buffer_, det_boxes3d);
+  bool is_success = detector_ptr_->detect(painted_pointcloud_msg, *tf_buffer_, det_boxes3d);
   if (!is_success) {
     return;
   }

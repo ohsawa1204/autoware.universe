@@ -40,7 +40,7 @@ public:
 
 private:
   std::shared_ptr<tf2_ros::TransformListener> transform_listener_{nullptr};
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
 };
 
 }  // namespace yabloc::common

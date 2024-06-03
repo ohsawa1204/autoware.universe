@@ -35,6 +35,11 @@
 
 #include <boost/geometry/algorithms/convex_hull.hpp>
 #include <boost/geometry/algorithms/within.hpp>
+
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace autoware::motion::control::autonomous_emergency_braking
 {
 using diagnostic_msgs::msg::DiagnosticStatus;
@@ -96,6 +101,16 @@ AEB::AEB(const rclcpp::NodeOptions & node_options)
   vehicle_info_(vehicle_info_util::VehicleInfoUtil(*this).getVehicleInfo()),
   collision_data_keeper_(this->get_clock())
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   // Subscribers
   sub_point_cloud_ = this->create_subscription<PointCloud2>(
     "~/input/pointcloud", rclcpp::SensorDataQoS(),
@@ -166,7 +181,7 @@ void AEB::onImu(const Imu::ConstSharedPtr input_msg)
   // transform imu
   geometry_msgs::msg::TransformStamped transform_stamped{};
   try {
-    transform_stamped = tf_buffer_.lookupTransform(
+    transform_stamped = tf_buffer_->lookupTransform(
       "base_link", input_msg->header.frame_id, input_msg->header.stamp,
       rclcpp::Duration::from_seconds(0.5));
   } catch (tf2::TransformException & ex) {
@@ -203,7 +218,7 @@ void AEB::onPointCloud(const PointCloud2::ConstSharedPtr input_msg)
     // transform pointcloud
     geometry_msgs::msg::TransformStamped transform_stamped{};
     try {
-      transform_stamped = tf_buffer_.lookupTransform(
+      transform_stamped = tf_buffer_->lookupTransform(
         "base_link", input_msg->header.frame_id, input_msg->header.stamp,
         rclcpp::Duration::from_seconds(0.5));
     } catch (tf2::TransformException & ex) {
@@ -443,7 +458,7 @@ void AEB::generateEgoPath(
 
   geometry_msgs::msg::TransformStamped transform_stamped{};
   try {
-    transform_stamped = tf_buffer_.lookupTransform(
+    transform_stamped = tf_buffer_->lookupTransform(
       "base_link", predicted_traj.header.frame_id, predicted_traj.header.stamp,
       rclcpp::Duration::from_seconds(0.5));
   } catch (tf2::TransformException & ex) {

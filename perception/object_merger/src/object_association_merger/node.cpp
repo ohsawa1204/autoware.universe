@@ -27,6 +27,10 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 using Label = autoware_auto_perception_msgs::msg::ObjectClassification;
 
 namespace
@@ -74,11 +78,19 @@ namespace object_association
 {
 ObjectAssociationMergerNode::ObjectAssociationMergerNode(const rclcpp::NodeOptions & node_options)
 : rclcpp::Node("object_association_merger_node", node_options),
-  tf_buffer_(get_clock()),
-  tf_listener_(tf_buffer_),
   object0_sub_(this, "input/object0", rclcpp::QoS{1}.get_rmw_qos_profile()),
   object1_sub_(this, "input/object1", rclcpp::QoS{1}.get_rmw_qos_profile())
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   // Parameters
   base_link_frame_id_ = declare_parameter<std::string>("base_link_frame_id", "base_link");
   priority_mode_ = static_cast<PriorityMode>(
@@ -133,9 +145,9 @@ void ObjectAssociationMergerNode::objectsCallback(
   autoware_auto_perception_msgs::msg::DetectedObjects transformed_objects0, transformed_objects1;
   if (
     !object_recognition_utils::transformObjects(
-      *input_objects0_msg, base_link_frame_id_, tf_buffer_, transformed_objects0) ||
+      *input_objects0_msg, base_link_frame_id_, *tf_buffer_, transformed_objects0) ||
     !object_recognition_utils::transformObjects(
-      *input_objects1_msg, base_link_frame_id_, tf_buffer_, transformed_objects1)) {
+      *input_objects1_msg, base_link_frame_id_, *tf_buffer_, transformed_objects1)) {
     return;
   }
 

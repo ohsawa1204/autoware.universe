@@ -19,17 +19,30 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace cluster_merger
 {
 
 ClusterMergerNode::ClusterMergerNode(const rclcpp::NodeOptions & node_options)
 : rclcpp::Node("cluster_merger_node", node_options),
-  tf_buffer_(get_clock()),
-  tf_listener_(tf_buffer_),
   objects0_sub_(this, "input/cluster0", rclcpp::QoS{1}.get_rmw_qos_profile()),
   objects1_sub_(this, "input/cluster1", rclcpp::QoS{1}.get_rmw_qos_profile()),
   sync_(SyncPolicy(10), objects0_sub_, objects1_sub_)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   output_frame_id_ = declare_parameter<std::string>("output_frame_id");
   using std::placeholders::_1;
   using std::placeholders::_2;
@@ -52,9 +65,9 @@ void ClusterMergerNode::objectsCallback(
   DetectedObjectsWithFeature transformed_objects1;
   if (
     !object_recognition_utils::transformObjectsWithFeature(
-      *input_objects0_msg, output_frame_id_, tf_buffer_, transformed_objects0) ||
+      *input_objects0_msg, output_frame_id_, *tf_buffer_, transformed_objects0) ||
     !object_recognition_utils::transformObjectsWithFeature(
-      *input_objects1_msg, output_frame_id_, tf_buffer_, transformed_objects1)) {
+      *input_objects1_msg, output_frame_id_, *tf_buffer_, transformed_objects1)) {
     return;
   }
 

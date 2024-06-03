@@ -40,6 +40,10 @@
 #include <memory>
 #include <utility>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace
 {
 double calcLookaheadDistance(
@@ -54,8 +58,18 @@ double calcLookaheadDistance(
 namespace pure_pursuit
 {
 PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & node_options)
-: Node("pure_pursuit", node_options), tf_buffer_(this->get_clock()), tf_listener_(tf_buffer_)
+: Node("pure_pursuit", node_options)
 {
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   pure_pursuit_ = std::make_unique<PurePursuit>();
 
   // Vehicle Parameters

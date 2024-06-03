@@ -35,19 +35,32 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace traffic_light
 {
 
 TrafficLightOcclusionPredictorNodelet::TrafficLightOcclusionPredictorNodelet(
   const rclcpp::NodeOptions & node_options)
-: Node("traffic_light_occlusion_predictor_node", node_options),
-  tf_buffer_(this->get_clock()),
-  tf_listener_(tf_buffer_)
+: Node("traffic_light_occlusion_predictor_node", node_options)
 {
   using std::placeholders::_1;
   using std::placeholders::_2;
   using std::placeholders::_3;
   using std::placeholders::_4;
+
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
 
   // subscribers
   map_sub_ = create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>(
@@ -119,7 +132,7 @@ void TrafficLightOcclusionPredictorNodelet::syncCallback(
     occlusion_ratios.resize(out_msg.signals.size(), 0);
   } else {
     cloud_occlusion_predictor_->predict(
-      in_cam_info_msg, in_roi_msg, in_cloud_msg, tf_buffer_, traffic_light_position_map_,
+      in_cam_info_msg, in_roi_msg, in_cloud_msg, *tf_buffer_, traffic_light_position_map_,
       occlusion_ratios);
   }
   for (size_t i = 0; i < occlusion_ratios.size(); i++) {

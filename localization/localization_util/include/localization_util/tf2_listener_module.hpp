@@ -36,8 +36,8 @@ public:
 
 private:
   rclcpp::Logger logger_;
-  tf2_ros::Buffer tf2_buffer_;
-  tf2_ros::TransformListener tf2_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
 };
 
 #endif  // LOCALIZATION_UTIL__TF2_LISTENER_MODULE_HPP_

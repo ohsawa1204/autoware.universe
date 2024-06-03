@@ -14,12 +14,22 @@
 
 #include "yabloc_common/static_tf_subscriber.hpp"
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace yabloc::common
 {
 StaticTfSubscriber::StaticTfSubscriber(rclcpp::Clock::SharedPtr clock)
 {
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(clock);
-  transform_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  std::lock_guard<std::mutex> lock(___global_mutex);
+  if (___global_tf_buffer_ == nullptr) {
+    ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(clock);
+    ___global_tf_listener_ = transform_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  } else {
+    tf_buffer_ = ___global_tf_buffer_;
+    transform_listener_ = ___global_tf_listener_;
+  }
 }
 
 std::optional<Sophus::SE3f> StaticTfSubscriber::se3f(

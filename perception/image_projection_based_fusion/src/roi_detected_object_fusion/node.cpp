@@ -79,7 +79,7 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
   Eigen::Affine3d object2camera_affine;
   {
     const auto transform_stamped_optional = getTransformStamped(
-      tf_buffer_, /*target*/ input_roi_msg.header.frame_id,
+      *tf_buffer_, /*target*/ input_roi_msg.header.frame_id,
       /*source*/ input_object_msg.header.frame_id, input_roi_msg.header.stamp);
     if (!transform_stamped_optional) {
       return;

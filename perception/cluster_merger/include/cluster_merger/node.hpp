@@ -44,8 +44,8 @@ public:
 private:
   // Subscriber
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   rclcpp::Subscription<DetectedObjectsWithFeature>::SharedPtr sub_objects_{};
   message_filters::Subscriber<DetectedObjectsWithFeature> objects0_sub_;

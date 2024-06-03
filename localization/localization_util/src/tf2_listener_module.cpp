@@ -16,6 +16,10 @@
 
 #include <tier4_autoware_utils/geometry/geometry.hpp>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 geometry_msgs::msg::TransformStamped identity_transform_stamped(
   const builtin_interfaces::msg::Time & timestamp, const std::string & header_frame_id,
   const std::string & child_frame_id)
@@ -30,8 +34,16 @@ geometry_msgs::msg::TransformStamped identity_transform_stamped(
 }
 
 Tf2ListenerModule::Tf2ListenerModule(rclcpp::Node * node)
-: logger_(node->get_logger()), tf2_buffer_(node->get_clock()), tf2_listener_(tf2_buffer_)
+: logger_(node->get_logger())
 {
+  std::lock_guard<std::mutex> lock(___global_mutex);
+  if (___global_tf_buffer_ == nullptr) {
+    ___global_tf_buffer_ = tf2_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
+    ___global_tf_listener_ = tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
+  } else {
+    tf2_buffer_ = ___global_tf_buffer_;
+    tf2_listener_ = ___global_tf_listener_;
+  }
 }
 
 bool Tf2ListenerModule::get_transform(
@@ -48,7 +60,7 @@ bool Tf2ListenerModule::get_transform(
 
   try {
     *transform_stamped_ptr =
-      tf2_buffer_.lookupTransform(target_frame, source_frame, tf2::TimePointZero);
+      tf2_buffer_->lookupTransform(target_frame, source_frame, tf2::TimePointZero);
   } catch (tf2::TransformException & ex) {
     RCLCPP_WARN(logger_, "%s", ex.what());
     RCLCPP_ERROR(logger_, "Please publish TF %s to %s", target_frame.c_str(), source_frame.c_str());

@@ -78,8 +78,8 @@ private:
   message_filters::Subscriber<PointCloud2> raw_pointcloud_sub_;
   message_filters::PassThrough<PointCloud2> passthrough_;
 
-  std::shared_ptr<Buffer> tf2_{std::make_shared<Buffer>(get_clock())};
-  std::shared_ptr<TransformListener> tf2_listener_{std::make_shared<TransformListener>(*tf2_)};
+  std::shared_ptr<tf2_ros::Buffer> tf2_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   using SyncPolicy = message_filters::sync_policies::ExactTime<LaserScan, PointCloud2, PointCloud2>;
   using Sync = message_filters::Synchronizer<SyncPolicy>;

@@ -102,8 +102,8 @@ private:
   // debugger class
   std::unique_ptr<TrackerDebugger> debugger_;
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   std::map<std::uint8_t, std::string> tracker_map_;
 

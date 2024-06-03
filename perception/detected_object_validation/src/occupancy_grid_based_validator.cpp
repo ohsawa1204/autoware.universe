@@ -30,6 +30,10 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+std::mutex ___global_mutex __attribute__((weak));
+std::shared_ptr<tf2_ros::Buffer> ___global_tf_buffer_ __attribute__((weak));
+std::shared_ptr<tf2_ros::TransformListener> ___global_tf_listener_ __attribute__((weak));
+
 namespace occupancy_grid_based_validator
 {
 using Shape = autoware_auto_perception_msgs::msg::Shape;
@@ -39,12 +43,20 @@ OccupancyGridBasedValidator::OccupancyGridBasedValidator(const rclcpp::NodeOptio
 : rclcpp::Node("occupancy_grid_based_validator", node_options),
   objects_sub_(this, "~/input/detected_objects", rclcpp::QoS{1}.get_rmw_qos_profile()),
   occ_grid_sub_(this, "~/input/occupancy_grid_map", rclcpp::QoS{1}.get_rmw_qos_profile()),
-  tf_buffer_(get_clock()),
-  tf_listener_(tf_buffer_),
   sync_(SyncPolicy(10), objects_sub_, occ_grid_sub_)
 {
   using std::placeholders::_1;
   using std::placeholders::_2;
+  {
+    std::lock_guard<std::mutex> lock(___global_mutex);
+    if (___global_tf_buffer_ == nullptr) {
+      ___global_tf_buffer_ = tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+      ___global_tf_listener_ = tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    } else {
+      tf_buffer_ = ___global_tf_buffer_;
+      tf_listener_ = ___global_tf_listener_;
+    }
+  }
   sync_.registerCallback(
     std::bind(&OccupancyGridBasedValidator::onObjectsAndOccGrid, this, _1, _2));
   objects_pub_ = create_publisher<autoware_auto_perception_msgs::msg::DetectedObjects>(
@@ -64,7 +76,7 @@ void OccupancyGridBasedValidator::onObjectsAndOccGrid(
   // Transform to occ grid frame
   autoware_auto_perception_msgs::msg::DetectedObjects transformed_objects;
   if (!object_recognition_utils::transformObjects(
-        *input_objects, input_occ_grid->header.frame_id, tf_buffer_, transformed_objects))
+        *input_objects, input_occ_grid->header.frame_id, *tf_buffer_, transformed_objects))
     return;
 
   // Convert ros data type to cv::Mat
