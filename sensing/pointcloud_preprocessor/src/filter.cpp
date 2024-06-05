@@ -61,11 +61,15 @@
 #include <utility>
 #include <vector>
 
+#include "pointcloud_preprocessor/pointcloud2_data.hpp"
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 pointcloud_preprocessor::Filter::Filter(
   const std::string & filter_name, const rclcpp::NodeOptions & options)
 : Node(filter_name, options), filter_field_name_(filter_name)
 {
+  std::string frame_id = static_cast<std::string>(declare_parameter("frame_id", ""));
+  RCLCPP_ERROR(this->get_logger(), "filter_name = %s, frame_id = %s\n", filter_name.c_str(), frame_id.c_str());
   // Set parameters (moved from NodeletLazy onInit)
   {
     tf_input_frame_ = static_cast<std::string>(declare_parameter("input_frame", ""));
@@ -87,8 +91,19 @@ pointcloud_preprocessor::Filter::Filter(
         << " - max_queue_size   : " << max_queue_size_);
   }
 
+  if ((filter_field_name_ == "RingOutlierFilter") && (frame_id != "pandar_40p_left"))
+    do_not_publish_output = true;
+
+  std::set<std::string> nodes = {
+    "RingOutlierFilter", "DualReturnOutlierFilter"};
+  if (nodes.find(filter_field_name_) != nodes.end()) {
+    pub_output2_ = this->create_publisher<pointcloud2_metadata_msgs::msg::PointCloud2MetaData>(
+      "output2", rclcpp::SensorDataQoS().keep_last(max_queue_size_));
+    init_IPC();
+  }
+
   // Set publisher
-  {
+  if (!do_not_publish_output) {
     pub_output_ = this->create_publisher<PointCloud2>(
       "output", rclcpp::SensorDataQoS().keep_last(max_queue_size_));
   }
@@ -190,8 +205,32 @@ void pointcloud_preprocessor::Filter::computePublish(
   // Copy timestamp to keep it
   output->header.stamp = input->header.stamp;
 
-  // Publish a boost shared ptr
-  pub_output_->publish(std::move(output));
+  std::set<std::string> nodes = {
+    "RingOutlierFilter", "DualReturnOutlierFilter"};
+  if(nodes.find(filter_field_name_) != nodes.end()) {
+    pointcloud2_metadata_msgs::msg::PointCloud2MetaData metadata;
+    metadata.offset = get_free_shared_memory_block();
+    if (metadata.offset == -1) {
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "get_free_shared_memory_block failed\n");
+    } else {
+      #if 0
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "get_unused_block succeeded (index = %d)\n", index.data);
+      #endif
+      copy_to_metadata_msg(*output, metadata);
+      copy_to_shared_memory(metadata.offset, *output, output->data.size() * sizeof(output->data[0]));
+      pub_output2_->publish(metadata);
+    }
+    // Publish a boost shared ptr
+    if (!do_not_publish_output)
+      pub_output_->publish(std::move(output));
+  } else {
+    // Publish a boost shared ptr
+    pub_output_->publish(std::move(output));
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -455,7 +494,32 @@ void pointcloud_preprocessor::Filter::faster_input_indices_callback(
   if (!convert_output_costly(output)) return;
 
   output->header.stamp = cloud->header.stamp;
-  pub_output_->publish(std::move(output));
+  std::set<std::string> nodes = {
+    "RingOutlierFilter", "DualReturnOutlierFilter"};
+  if(nodes.find(filter_field_name_) != nodes.end()) {
+    pointcloud2_metadata_msgs::msg::PointCloud2MetaData metadata;
+    metadata.offset = get_free_shared_memory_block();
+    if (metadata.offset == -1) {
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "get_free_shared_memory_block failed\n");
+    } else {
+      #if 0
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "get_unused_block succeeded (index = %d)\n", index.data);
+      #endif
+      copy_to_metadata_msg(*output, metadata);
+      copy_to_shared_memory(metadata.offset, *output, output->data.size() * sizeof(output->data[0]));
+      pub_output2_->publish(metadata);
+    }
+    // Publish a boost shared ptr
+    if (!do_not_publish_output)
+      pub_output_->publish(std::move(output));
+  } else {
+    // Publish a boost shared ptr
+    pub_output_->publish(std::move(output));
+  }
 }
 
 // TODO(sykwer): Temporary Implementation: Remove this interface when all the filter nodes conform

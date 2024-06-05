@@ -83,6 +83,8 @@
 #include <tier4_autoware_utils/ros/debug_publisher.hpp>
 #include <tier4_autoware_utils/system/stop_watch.hpp>
 
+#include "pointcloud2_metadata_msgs/msg/point_cloud2_meta_data.hpp"
+
 namespace pointcloud_preprocessor
 {
 namespace sync_policies = message_filters::sync_policies;
@@ -141,6 +143,7 @@ protected:
 
   /** \brief The output PointCloud2 publisher. */
   rclcpp::Publisher<PointCloud2>::SharedPtr pub_output_;
+  rclcpp::Publisher<pointcloud2_metadata_msgs::msg::PointCloud2MetaData>::SharedPtr pub_output2_;
 
   /** \brief The message filter subscriber for PointCloud2. */
   message_filters::Subscriber<PointCloud2> sub_input_filter_;
@@ -278,6 +281,8 @@ private:
   /** \brief Synchronized input, and indices.*/
   std::shared_ptr<ExactTimeSyncPolicy> sync_input_indices_e_;
   std::shared_ptr<ApproximateTimeSyncPolicy> sync_input_indices_a_;
+
+  bool do_not_publish_output = false;
 
   /** \brief PointCloud2 + Indices data callback. */
   void input_indices_callback(const PointCloud2ConstPtr cloud, const PointIndicesConstPtr indices);
