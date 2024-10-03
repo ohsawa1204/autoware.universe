@@ -22,6 +22,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include "autoware_sensing_msgs/msg/batch_imu.hpp"
 
 #include <tf2/convert.h>
 #include <tf2/transform_datatypes.h>
@@ -58,6 +59,7 @@ private:
   void onTwistWithCovarianceStamped(
     const geometry_msgs::msg::TwistWithCovarianceStamped::ConstSharedPtr twist_msg);
   void onImu(const sensor_msgs::msg::Imu::ConstSharedPtr imu_msg);
+  void onBatchImu(const autoware_sensing_msgs::msg::BatchImu::ConstSharedPtr batch_imu_msg);
   bool getTransform(
     const std::string & target_frame, const std::string & source_frame,
     tf2::Transform * tf2_transform_ptr);
@@ -65,7 +67,7 @@ private:
   bool undistortPointCloud(const tf2::Transform & tf2_base_link_to_sensor, PointCloud2 & points);
 
   rclcpp::Subscription<PointCloud2>::SharedPtr input_points_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+  rclcpp::Subscription<autoware_sensing_msgs::msg::BatchImu>::SharedPtr batch_imu_sub_;
   rclcpp::Subscription<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_sub_;
   rclcpp::Publisher<PointCloud2>::SharedPtr undistorted_points_pub_;
 

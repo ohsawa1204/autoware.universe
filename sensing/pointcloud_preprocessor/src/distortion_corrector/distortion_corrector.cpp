@@ -49,9 +49,9 @@ DistortionCorrectorComponent::DistortionCorrectorComponent(const rclcpp::NodeOpt
     "~/input/twist", 10,
     std::bind(
       &DistortionCorrectorComponent::onTwistWithCovarianceStamped, this, std::placeholders::_1));
-  imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
+  batch_imu_sub_ = this->create_subscription<autoware_sensing_msgs::msg::BatchImu>(
     "~/input/imu", 10,
-    std::bind(&DistortionCorrectorComponent::onImu, this, std::placeholders::_1));
+    std::bind(&DistortionCorrectorComponent::onBatchImu, this, std::placeholders::_1));
   input_points_sub_ = this->create_subscription<PointCloud2>(
     "~/input/pointcloud", rclcpp::SensorDataQoS(),
     std::bind(&DistortionCorrectorComponent::onPointCloud, this, std::placeholders::_1));
@@ -111,6 +111,12 @@ void DistortionCorrectorComponent::onImu(const sensor_msgs::msg::Imu::ConstShare
     }
     break;
   }
+}
+
+void DistortionCorrectorComponent::onBatchImu(const autoware_sensing_msgs::msg::BatchImu::ConstSharedPtr batch_imu_msg)
+{
+  for (int i = 0; i < batch_imu_msg->imu.size(); i++)
+    onImu(std::make_shared<sensor_msgs::msg::Imu>(batch_imu_msg->imu[i]));
 }
 
 void DistortionCorrectorComponent::onPointCloud(PointCloud2::UniquePtr points_msg)
