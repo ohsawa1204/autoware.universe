@@ -20,6 +20,20 @@
 #include <string>
 #include <utility>
 
+namespace
+{
+rclcpp::SubscriptionOptions createNoExecSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
+}
+
 namespace pointcloud_preprocessor
 {
 /** @brief Constructor. */
@@ -50,8 +64,9 @@ DistortionCorrectorComponent::DistortionCorrectorComponent(const rclcpp::NodeOpt
     std::bind(
       &DistortionCorrectorComponent::onTwistWithCovarianceStamped, this, std::placeholders::_1));
   imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
-    "~/input/imu", 10,
-    std::bind(&DistortionCorrectorComponent::onImu, this, std::placeholders::_1));
+    "~/input/imu", 100,
+    std::bind(&DistortionCorrectorComponent::onImu, this, std::placeholders::_1),
+    createNoExecSubscriptionOptions(this));
   input_points_sub_ = this->create_subscription<PointCloud2>(
     "~/input/pointcloud", rclcpp::SensorDataQoS(),
     std::bind(&DistortionCorrectorComponent::onPointCloud, this, std::placeholders::_1));
@@ -122,6 +137,12 @@ void DistortionCorrectorComponent::onPointCloud(PointCloud2::UniquePtr points_ms
   if (points_sub_count < 1) {
     return;
   }
+
+  sensor_msgs::msg::Imu::SharedPtr imu_msg = std::make_shared<sensor_msgs::msg::Imu>();
+  rclcpp::MessageInfo msg_info;
+
+  while (imu_sub_->take(*imu_msg, msg_info))
+    onImu(imu_msg);
 
   tf2::Transform tf2_base_link_to_sensor{};
   getTransform(points_msg->header.frame_id, base_link_frame_, &tf2_base_link_to_sensor);
