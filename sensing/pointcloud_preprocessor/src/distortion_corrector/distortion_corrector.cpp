@@ -20,6 +20,20 @@
 #include <string>
 #include <utility>
 
+namespace
+{
+rclcpp::SubscriptionOptions createNoExecSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
+}
+
 namespace pointcloud_preprocessor
 {
 /** @brief Constructor. */
@@ -51,7 +65,8 @@ DistortionCorrectorComponent::DistortionCorrectorComponent(const rclcpp::NodeOpt
       &DistortionCorrectorComponent::onTwistWithCovarianceStamped, this, std::placeholders::_1));
   batch_imu_sub_ = this->create_subscription<autoware_sensing_msgs::msg::BatchImu>(
     "~/input/imu", 10,
-    std::bind(&DistortionCorrectorComponent::onBatchImu, this, std::placeholders::_1));
+    std::bind(&DistortionCorrectorComponent::onBatchImu, this, std::placeholders::_1),
+    createNoExecSubscriptionOptions(this));
   input_points_sub_ = this->create_subscription<PointCloud2>(
     "~/input/pointcloud", rclcpp::SensorDataQoS(),
     std::bind(&DistortionCorrectorComponent::onPointCloud, this, std::placeholders::_1));
@@ -127,6 +142,13 @@ void DistortionCorrectorComponent::onPointCloud(PointCloud2::UniquePtr points_ms
 
   if (points_sub_count < 1) {
     return;
+  }
+
+  autoware_sensing_msgs::msg::BatchImu::SharedPtr batch_imu_msg = std::make_shared<autoware_sensing_msgs::msg::BatchImu>();
+  rclcpp::MessageInfo msg_info;
+
+  while (batch_imu_sub_->take(*batch_imu_msg, msg_info)) {
+    onBatchImu(batch_imu_msg);
   }
 
   tf2::Transform tf2_base_link_to_sensor{};
