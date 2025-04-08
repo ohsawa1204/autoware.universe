@@ -100,6 +100,8 @@ private:
   double horizontal_resolution_{0.4};
   boost::circular_buffer<cv::Mat> no_return_mask_buffer{1};
   boost::circular_buffer<cv::Mat> dust_mask_buffer{1};
+  rclcpp::Subscription<PointCloud2>::SharedPtr pointcloud_raw_ex_subscriber_;
+  PointCloud2ConstPtr input;
 
 public:
   PCL_MAKE_ALIGNED_OPERATOR_NEW

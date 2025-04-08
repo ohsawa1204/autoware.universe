@@ -93,6 +93,11 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
   using std::placeholders::_1;
   set_param_res_ = this->add_on_set_parameters_callback(
     std::bind(&BlockageDiagComponent::paramCallback, this, _1));
+
+  auto noexec_callback_group = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto noexec_subscription_options = rclcpp::SubscriptionOptions();
+  noexec_subscription_options.callback_group = noexec_callback_group;
+  pointcloud_raw_ex_subscriber_ = create_subscription<PointCloud2>("effective_input", rclcpp::SensorDataQoS().keep_last(max_queue_size_), [this](const PointCloud2ConstPtr msg) { input = msg; }, noexec_subscription_options);
 }
 
 void BlockageDiagComponent::onBlockageChecker(DiagnosticStatusWrapper & stat)
@@ -158,9 +163,23 @@ void BlockageDiagComponent::dustChecker(diagnostic_updater::DiagnosticStatusWrap
 }
 
 void BlockageDiagComponent::filter(
-  const PointCloud2ConstPtr & input, [[maybe_unused]] const IndicesPtr & indices,
+  const PointCloud2ConstPtr & __input, [[maybe_unused]] const IndicesPtr & indices,
   PointCloud2 & output)
 {
+  if (this->get_node_options().use_intra_process_comms()){
+    auto intra_process_sub = pointcloud_raw_ex_subscriber_->get_intra_process_waitable();
+    if (intra_process_sub->is_ready(nullptr) == true) {
+      std::shared_ptr<void> data = intra_process_sub->take_data();
+      intra_process_sub->execute(data);
+    } else
+      return;
+  } else {
+    auto data = std::make_shared<PointCloud2>();
+    rclcpp::MessageInfo message_info;
+    if (!pointcloud_raw_ex_subscriber_->take(*data, message_info))
+      return;
+    input = data;
+  }
   std::scoped_lock lock(mutex_);
   int vertical_bins = vertical_bins_;
   int ideal_horizontal_bins;
